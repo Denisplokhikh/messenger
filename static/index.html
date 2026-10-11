@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastAPI Messenger</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="app" class="app-container">
+
+    <!-- Auth Modal (Shown when not authenticated) -->
+    <div id="auth-modal" class="modal-backdrop">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div class="logo-icon">💬</div>
+          <h2>FastAPI Messenger</h2>
+          <p class="subtitle">Быстрый мессенджер реального времени</p>
+        </div>
+
+        <div class="auth-tabs">
+          <button id="tab-login" class="tab-btn active" type="button">Вход</button>
+          <button id="tab-register" class="tab-btn" type="button">Регистрация</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form">
+          <div class="form-group">
+            <label for="login-username">Имя пользователя или Email</label>
+            <input type="text" id="login-username" placeholder="alex или alex@mail.com" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="login-password">Пароль</label>
+            <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <div id="login-error" class="form-error hidden"></div>
+          <button type="submit" class="btn btn-primary w-full">Войти</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="auth-form hidden">
+          <div class="form-group">
+            <label for="reg-username">Имя пользователя</label>
+            <input type="text" id="reg-username" placeholder="alex" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email</label>
+            <input type="email" id="reg-email" placeholder="alex@mail.com" required autocomplete="email">
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Пароль</label>
+            <input type="password" id="reg-password" placeholder="Минимум 6 символов" required minlength="6" autocomplete="new-password">
+          </div>
+          <div id="register-error" class="form-error hidden"></div>
+          <button type="submit" class="btn btn-primary w-full">Зарегистрироваться</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Main Messenger View -->
+    <div id="messenger-view" class="messenger-layout hidden">
+      
+      <!-- Sidebar -->
+      <aside class="sidebar">
+        <!-- User Profile Header -->
+        <div class="sidebar-header">
+          <div class="user-profile">
+            <div id="user-avatar" class="avatar">?</div>
+            <div class="user-info">
+              <span id="current-username" class="user-name">Загрузка...</span>
+              <span id="ws-status" class="status-badge status-offline">● Офлайн</span>
+            </div>
+          </div>
+          <button id="btn-logout" class="icon-btn" title="Выйти" type="button">🚪</button>
+        </div>
+
+        <!-- Search / New Chat Bar -->
+        <div class="search-section">
+          <div class="search-input-wrapper">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="user-search-input" placeholder="Поиск пользователей..." autocomplete="off">
+          </div>
+          <!-- Live User Search Results -->
+          <div id="search-results-dropdown" class="search-dropdown hidden"></div>
+        </div>
+
+        <!-- Chats List Header & Group Button -->
+        <div class="chats-header">
+          <span>Чаты</span>
+          <button id="btn-create-group-modal" class="btn-text" type="button">+ Новая группа</button>
+        </div>
+
+        <!-- Chats List -->
+        <div id="chats-list" class="chats-list">
+          <div class="empty-state">Нет активных чатов. Найдите собеседника через поиск выше!</div>
+        </div>
+      </aside>
+
+      <!-- Main Chat Area -->
+      <main class="chat-area">
+        <!-- Active Chat Header -->
+        <div id="chat-header" class="chat-header hidden">
+          <div class="chat-meta">
+            <div id="active-chat-avatar" class="avatar chat-avatar">?</div>
+            <div>
+              <h3 id="active-chat-title" class="chat-title">Выберите чат</h3>
+              <span id="active-chat-subtitle" class="chat-subtitle"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Welcome Placeholder (when no chat selected) -->
+        <div id="no-chat-selected" class="no-chat-screen">
+          <div class="no-chat-illustration">💬</div>
+          <h3>Выберите или начните диалог</h3>
+          <p>Найдите собеседника в поиске слева или выберите существующий чат</p>
+        </div>
+
+        <!-- Messages Container -->
+        <div id="messages-container" class="messages-container hidden">
+          <div id="messages-list" class="messages-list"></div>
+        </div>
+
+        <!-- Message Input Bar -->
+        <form id="message-form" class="message-input-form hidden">
+          <label for="message-input" class="visually-hidden">Сообщение</label>
+          <textarea
+            id="message-input"
+            rows="1"
+            placeholder="Напишите сообщение (Enter для отправки, Shift+Enter для новой строки)..."
+            required
+          ></textarea>
+          <button type="submit" id="send-button" class="btn btn-send" title="Отправить">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"></path>
+            </svg>
+          </button>
+        </form>
+      </main>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div id="group-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Создать группу</h3>
+          <p class="subtitle">Введите название и ID участников через запятую</p>
+        </div>
+        <form id="group-form">
+          <div class="form-group">
+            <label for="group-name">Название группы</label>
+            <input type="text" id="group-name" placeholder="Проект Мессенджер" required>
+          </div>
+          <div class="form-group">
+            <label for="group-members">ID участников (через запятую)</label>
+            <input type="text" id="group-members" placeholder="например: 2, 3" required>
+          </div>
+          <div id="group-error" class="form-error hidden"></div>
+          <div class="modal-actions">
+            <button type="button" id="btn-cancel-group" class="btn btn-secondary">Отмена</button>
+            <button type="submit" class="btn btn-primary">Создать</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

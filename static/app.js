@@ -1,16 +1,39 @@
-// FastAPI Messenger Client Application
+// ========================================================
+// FastAPI Messenger - Vue Advanced Chat Integration
+// ========================================================
 
+// 1. Регистрация Web Component vue-advanced-chat
+if (window["vue-advanced-chat"] && typeof window["vue-advanced-chat"].register === "function") {
+  window["vue-advanced-chat"].register();
+}
+
+// 2. Локализация интерфейса на русский язык
+const RUSSIAN_TEXT_MESSAGES = {
+  ROOMS_EMPTY: "Нет активных чатов",
+  ROOM_EMPTY: "В этом чате пока нет сообщений",
+  NEW_MESSAGES: "Новые сообщения",
+  MESSAGE_DELETED: "Сообщение удалено",
+  MESSAGES_EMPTY: "Сообщений нет",
+  CONVERSATION_START: "Начало диалога",
+  TYPE_MESSAGE: "Напишите сообщение...",
+  SEARCH: "Поиск чатов...",
+  IS_TYPING: "печатает...",
+  CANCEL_SELECT_MESSAGE: "Отмена"
+};
+
+// 3. Состояние приложения
 const state = {
   token: localStorage.getItem("access_token") || null,
   currentUser: null,
-  chats: [],
-  activeChat: null,
+  rooms: [],
+  activeRoomId: null,
+  messages: [],
   ws: null,
-  reconnectInterval: 3000,
-  pingIntervalId: null,
+  reconnectTimer: null,
+  pingTimer: null,
 };
 
-// DOM Elements
+// 4. DOM элементы
 const authModal = document.getElementById("auth-modal");
 const tabLogin = document.getElementById("tab-login");
 const tabRegister = document.getElementById("tab-register");
@@ -20,32 +43,30 @@ const loginError = document.getElementById("login-error");
 const registerError = document.getElementById("register-error");
 
 const messengerView = document.getElementById("messenger-view");
-const userAvatar = document.getElementById("user-avatar");
-const currentUsername = document.getElementById("current-username");
+const currentUsernameEl = document.getElementById("current-username");
+const userAvatarImg = document.getElementById("user-avatar-img");
 const wsStatus = document.getElementById("ws-status");
 const btnLogout = document.getElementById("btn-logout");
+const btnNewChat = document.getElementById("btn-new-chat");
+const chatComponent = document.getElementById("chat-component");
 
+// Модалка нового чата
+const newChatModal = document.getElementById("new-chat-modal");
+const btnCloseNewChat = document.getElementById("btn-close-new-chat");
+const tabDirect = document.getElementById("tab-direct");
+const tabGroup = document.getElementById("tab-group");
+const directTabContent = document.getElementById("direct-chat-tab-content");
 const userSearchInput = document.getElementById("user-search-input");
-const searchResultsDropdown = document.getElementById("search-results-dropdown");
-const chatsList = document.getElementById("chats-list");
-
-const noChatSelected = document.getElementById("no-chat-selected");
-const chatHeader = document.getElementById("chat-header");
-const activeChatAvatar = document.getElementById("active-chat-avatar");
-const activeChatTitle = document.getElementById("active-chat-title");
-const activeChatSubtitle = document.getElementById("active-chat-subtitle");
-const messagesContainer = document.getElementById("messages-container");
-const messagesList = document.getElementById("messages-list");
-const messageForm = document.getElementById("message-form");
-const messageInput = document.getElementById("message-input");
-
-const groupModal = document.getElementById("group-modal");
-const btnCreateGroupModal = document.getElementById("btn-create-group-modal");
-const btnCancelGroup = document.getElementById("btn-cancel-group");
+const userSearchResults = document.getElementById("user-search-results");
 const groupForm = document.getElementById("group-form");
 const groupError = document.getElementById("group-error");
 
-// --- API Helper ---
+// Генерация аватара по имени
+function getAvatarUrl(name) {
+  return `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(name || "user")}`;
+}
+
+// Вспомогательный API клиент
 async function api(endpoint, options = {}) {
   const headers = options.headers || {};
   if (state.token) {
@@ -59,7 +80,311 @@ async function api(endpoint, options = {}) {
   return res;
 }
 
-// --- Auth Tabs & Handlers ---
+// Форматирование комнаты для vue-advanced-chat
+function formatRoom(chat, currentUserId) {
+  let roomName = chat.name || "Чат";
+  let avatar = "";
+
+  if (chat.is_group) {
+    avatar = getAvatarUrl(roomName);
+  } else {
+    // Личный диалог: находим второго участника
+    const otherParticipant = chat.participants.find(p => p.user_id !== currentUserId);
+    if (otherParticipant && otherParticipant.user) {
+      roomName = otherParticipant.user.username;
+      avatar = getAvatarUrl(roomName);
+    } else {
+      avatar = getAvatarUrl("chat");
+    }
+  }
+
+  // Список пользователей комнаты
+  const users = chat.participants.map(p => ({
+    _id: String(p.user_id),
+    username: p.user ? p.user.username : `User ${p.user_id}`,
+    avatar: getAvatarUrl(p.user ? p.user.username : `User ${p.user_id}`),
+    status: { state: "online" }
+  }));
+
+  let lastMessage = null;
+  if (chat.last_message) {
+    const lm = chat.last_message;
+    lastMessage = {
+      _id: String(lm.id),
+      content: lm.content,
+      senderId: String(lm.sender_id),
+      username: lm.sender ? lm.sender.username : "Пользователь",
+      timestamp: new Date(lm.created_at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      date: new Date(lm.created_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long" }),
+      saved: true,
+      distributed: true,
+      seen: true,
+      new: false
+    };
+  }
+
+  return {
+    roomId: String(chat.id),
+    roomName: roomName,
+    avatar: avatar,
+    unreadCount: 0,
+    users: users,
+    lastMessage: lastMessage
+  };
+}
+
+// Форматирование одного сообщения для vue-advanced-chat
+function formatMessage(msg) {
+  const username = msg.sender?.username || msg.sender_username || "Пользователь";
+  const createdAt = msg.created_at ? new Date(msg.created_at) : new Date();
+
+  return {
+    _id: String(msg.id),
+    indexId: msg.id,
+    content: msg.content,
+    senderId: String(msg.sender_id),
+    username: username,
+    avatar: getAvatarUrl(username),
+    date: createdAt.toLocaleDateString("ru-RU", { day: "numeric", month: "long" }),
+    timestamp: createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+    system: false,
+    saved: true,
+    distributed: true,
+    seen: true,
+    files: []
+  };
+}
+
+// Загрузка комнат с бэкенда
+async function loadRooms() {
+  try {
+    const res = await api("/api/v1/chats");
+    const chatsData = await res.json();
+
+    state.rooms = chatsData.map(chat => formatRoom(chat, state.currentUser.id));
+    chatComponent.rooms = [...state.rooms];
+    chatComponent.loadingRooms = false;
+    chatComponent.roomsLoaded = true;
+    chatComponent.setAttribute("loading-rooms", "false");
+    chatComponent.setAttribute("rooms-loaded", "true");
+  } catch (err) {
+    console.error("Ошибка загрузки комнат:", err);
+    chatComponent.loadingRooms = false;
+    chatComponent.roomsLoaded = true;
+  }
+}
+
+let isChatSetup = false;
+let isSendingMessage = false;
+
+// Настройка компонента vue-advanced-chat
+function setupChatComponent() {
+  chatComponent.currentUserId = String(state.currentUser.id);
+  chatComponent.textMessages = RUSSIAN_TEXT_MESSAGES;
+  chatComponent.theme = "dark";
+  chatComponent.loadingRooms = false;
+  chatComponent.roomsLoaded = true;
+
+  if (isChatSetup) return;
+  isChatSetup = true;
+
+  // Обработка запроса сообщений для выбранной комнаты
+  chatComponent.addEventListener("fetch-messages", async (event) => {
+    const detail = event.detail ? event.detail[0] || event.detail : {};
+    const room = detail.room;
+    if (!room) return;
+
+    state.activeRoomId = room.roomId;
+    chatComponent.messagesLoaded = false;
+
+    try {
+      const res = await api(`/api/v1/chats/${room.roomId}/messages?limit=100`);
+      const rawMsgs = await res.json();
+
+      state.messages = rawMsgs.map(formatMessage);
+      chatComponent.messages = [...state.messages];
+      chatComponent.messagesLoaded = true;
+    } catch (err) {
+      console.error("Ошибка загрузки сообщений комнаты:", err);
+      chatComponent.messages = [];
+      chatComponent.messagesLoaded = true;
+    }
+  });
+
+  // Отправка сообщения
+  chatComponent.addEventListener("send-message", async (event) => {
+    if (isSendingMessage) return;
+
+    const detail = event.detail ? event.detail[0] || event.detail : {};
+    const { roomId, content } = detail;
+    if (!roomId || !content || !content.trim()) return;
+
+    isSendingMessage = true;
+    try {
+      const res = await api(`/api/v1/chats/${roomId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: content.trim() })
+      });
+
+      if (res.status === 201) {
+        const newMsgData = await res.json();
+        const formatted = formatMessage(newMsgData);
+
+        // Добавляем сообщение, если его ещё нет
+        if (!state.messages.some(m => String(m._id) === String(formatted._id))) {
+          state.messages = [...state.messages, formatted];
+          chatComponent.messages = [...state.messages];
+        }
+
+        // Обновляем последнее сообщение в списке комнат
+        const roomIdx = state.rooms.findIndex(r => String(r.roomId) === String(roomId));
+        if (roomIdx !== -1) {
+          state.rooms[roomIdx].lastMessage = formatted;
+          chatComponent.rooms = [...state.rooms];
+        }
+      }
+    } catch (err) {
+      console.error("Ошибка при отправке сообщения:", err);
+    } finally {
+      isSendingMessage = false;
+    }
+  });
+
+  // Клик по кнопке "+" в списке комнат
+  chatComponent.addEventListener("add-room", () => {
+    openNewChatModal();
+  });
+
+  // Обработка запроса подгрузки дополнительных комнат (устраняет бесконечное колесо загрузки)
+  chatComponent.addEventListener("fetch-more-rooms", () => {
+    chatComponent.loadingRooms = false;
+    chatComponent.roomsLoaded = true;
+  });
+}
+
+// Подключение к WebSocket для мгновенных сообщений
+function connectWebSocket() {
+  if (state.ws) {
+    state.ws.onclose = null;
+    state.ws.close();
+    state.ws = null;
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsUrl = `${protocol}//${window.location.host}/api/v1/ws?token=${encodeURIComponent(state.token)}`;
+
+  state.ws = new WebSocket(wsUrl);
+
+  state.ws.onopen = () => {
+    wsStatus.textContent = "● Онлайн";
+    wsStatus.className = "status-badge status-online";
+
+    if (state.pingTimer) clearInterval(state.pingTimer);
+    state.pingTimer = setInterval(() => {
+      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+        state.ws.send(JSON.stringify({ action: "ping" }));
+      }
+    }, 25000);
+  };
+
+  state.ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.event === "new_message" && data.message) {
+        const msg = data.message;
+        const msgRoomId = String(msg.chat_id);
+
+        // Если открыта эта комната — добавляем сообщение в чат
+        if (state.activeRoomId === msgRoomId) {
+          const formatted = formatMessage(msg);
+          if (!state.messages.some(m => m._id === formatted._id)) {
+            state.messages = [...state.messages, formatted];
+            chatComponent.messages = [...state.messages];
+          }
+        }
+
+        // Обновляем последнее сообщение в комнате
+        const roomIdx = state.rooms.findIndex(r => r.roomId === msgRoomId);
+        if (roomIdx !== -1) {
+          state.rooms[roomIdx].lastMessage = formatMessage(msg);
+          chatComponent.rooms = [...state.rooms];
+        } else {
+          // Если комната новая, перезагружаем список комнат
+          loadRooms();
+        }
+      }
+    } catch (err) {
+      console.error("Ошибка разбора WS сообщения:", err);
+    }
+  };
+
+  state.ws.onclose = () => {
+    wsStatus.textContent = "● Офлайн";
+    wsStatus.className = "status-badge status-offline";
+    if (state.pingTimer) clearInterval(state.pingTimer);
+
+    if (state.token) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = setTimeout(connectWebSocket, 3000);
+    }
+  };
+}
+
+// Инициализация пользователя
+async function initApp() {
+  if (!state.token) {
+    showAuthModal();
+    return;
+  }
+
+  try {
+    const res = await api("/api/v1/users/me");
+    if (!res.ok) throw new Error("Не удалось загрузить пользователя");
+
+    state.currentUser = await res.json();
+    currentUsernameEl.textContent = state.currentUser.username;
+    userAvatarImg.src = getAvatarUrl(state.currentUser.username);
+
+    authModal.classList.add("hidden");
+    messengerView.classList.remove("hidden");
+
+    setupChatComponent();
+    await loadRooms();
+    connectWebSocket();
+  } catch (err) {
+    console.error("Ошибка инициализации:", err);
+    logout();
+  }
+}
+
+// Выход из системы
+function logout() {
+  localStorage.removeItem("access_token");
+  state.token = null;
+  state.currentUser = null;
+  state.rooms = [];
+  state.messages = [];
+  state.activeRoomId = null;
+
+  if (state.ws) {
+    state.ws.close();
+    state.ws = null;
+  }
+
+  messengerView.classList.add("hidden");
+  showAuthModal();
+}
+
+function showAuthModal() {
+  authModal.classList.remove("hidden");
+  loginForm.reset();
+  registerForm.reset();
+  loginError.classList.add("hidden");
+  registerError.classList.add("hidden");
+}
+
+// Вкладки авторизации
 tabLogin.addEventListener("click", () => {
   tabLogin.classList.add("active");
   tabRegister.classList.remove("active");
@@ -74,6 +399,7 @@ tabRegister.addEventListener("click", () => {
   loginForm.classList.add("hidden");
 });
 
+// Отправка формы входа
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   loginError.classList.add("hidden");
@@ -91,10 +417,13 @@ loginForm.addEventListener("submit", async (e) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: formData,
     });
-    const data = await res.json();
+
     if (!res.ok) {
-      throw new Error(data.detail || "Ошибка входа");
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "Неверный логин или пароль");
     }
+
+    const data = await res.json();
     state.token = data.access_token;
     localStorage.setItem("access_token", state.token);
     initApp();
@@ -104,6 +433,7 @@ loginForm.addEventListener("submit", async (e) => {
   }
 });
 
+// Отправка формы регистрации
 registerForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   registerError.classList.add("hidden");
@@ -118,410 +448,159 @@ registerForm.addEventListener("submit", async (e) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, email, password }),
     });
-    const data = await res.json();
+
     if (!res.ok) {
-      throw new Error(data.detail || "Ошибка регистрации");
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "Ошибка при регистрации");
     }
-    // Auto login after register
-    document.getElementById("login-username").value = username;
-    document.getElementById("login-password").value = password;
-    loginForm.requestSubmit();
+
+    // Автоматический логин после успешной регистрации
+    const loginFormData = new URLSearchParams();
+    loginFormData.append("username", username);
+    loginFormData.append("password", password);
+
+    const loginRes = await fetch("/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: loginFormData,
+    });
+
+    const loginData = await loginRes.json();
+    state.token = loginData.access_token;
+    localStorage.setItem("access_token", state.token);
+    initApp();
   } catch (err) {
     registerError.textContent = err.message;
     registerError.classList.remove("hidden");
   }
 });
 
-function logout() {
-  state.token = null;
-  state.currentUser = null;
-  state.activeChat = null;
-  localStorage.removeItem("access_token");
-  if (state.ws) {
-    state.ws.close();
-  }
-  authModal.classList.remove("hidden");
-  messengerView.classList.add("hidden");
-}
-
 btnLogout.addEventListener("click", logout);
 
-// --- Initialization ---
-async function initApp() {
-  if (!state.token) {
-    authModal.classList.remove("hidden");
-    messengerView.classList.add("hidden");
-    return;
-  }
-
-  try {
-    const res = await api("/api/v1/auth/me");
-    if (!res.ok) throw new Error("Не удалось получить профиль");
-    state.currentUser = await res.json();
-
-    authModal.classList.add("hidden");
-    messengerView.classList.remove("hidden");
-
-    currentUsername.textContent = state.currentUser.username;
-    userAvatar.textContent = state.currentUser.username[0].toUpperCase();
-
-    // Connect WebSocket
-    connectWebSocket();
-
-    // Load Chats
-    await loadChats();
-  } catch (err) {
-    logout();
-  }
+// ==================== Модалка Нового Чата ====================
+function openNewChatModal() {
+  newChatModal.classList.remove("hidden");
+  userSearchInput.value = "";
+  userSearchResults.innerHTML = '<div class="empty-search-text">Введите имя для поиска собеседника</div>';
+  groupForm.reset();
+  groupError.classList.add("hidden");
 }
 
-// --- WebSocket Realtime ---
-function setWsStatus(status, text) {
-  wsStatus.className = `status-badge status-${status}`;
-  wsStatus.textContent = text;
+function closeNewChatModal() {
+  newChatModal.classList.add("hidden");
 }
 
-function connectWebSocket() {
-  if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
+btnNewChat.addEventListener("click", openNewChatModal);
+btnCloseNewChat.addEventListener("click", closeNewChatModal);
 
-  setWsStatus("connecting", "● Соединение...");
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsUrl = `${protocol}//${window.location.host}/api/v1/ws?token=${encodeURIComponent(state.token)}`;
-
-  state.ws = new WebSocket(wsUrl);
-
-  state.ws.onopen = () => {
-    setWsStatus("online", "● В сети");
-    // Heartbeat ping
-    if (state.pingIntervalId) clearInterval(state.pingIntervalId);
-    state.pingIntervalId = setInterval(() => {
-      if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-        state.ws.send(JSON.stringify({ action: "ping" }));
-      }
-    }, 25000);
-  };
-
-  state.ws.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      handleWsMessage(data);
-    } catch (e) {
-      console.error("WS Parse error", e);
-    }
-  };
-
-  state.ws.onclose = () => {
-    setWsStatus("offline", "● Офлайн");
-    if (state.pingIntervalId) clearInterval(state.pingIntervalId);
-    // Reconnect if user still logged in
-    if (state.token) {
-      setTimeout(connectWebSocket, state.reconnectInterval);
-    }
-  };
-
-  state.ws.onerror = () => {
-    state.ws.close();
-  };
-}
-
-function handleWsMessage(payload) {
-  if (payload.event === "new_message") {
-    const msg = payload.message;
-
-    // If currently inside this chat, render the incoming message
-    if (state.activeChat && state.activeChat.id === msg.chat_id) {
-      appendMessageToView(msg);
-      scrollToBottom();
-    }
-
-    // Refresh chats preview
-    loadChats();
-  }
-}
-
-// --- Chats & Messaging ---
-async function loadChats() {
-  try {
-    const res = await api("/api/v1/chats");
-    if (!res.ok) return;
-    state.chats = await res.json();
-    renderChatsList();
-  } catch (err) {
-    console.error("Load chats error", err);
-  }
-}
-
-function getChatDisplayName(chat) {
-  if (chat.is_group) {
-    return chat.name || "Групповой чат";
-  }
-  const other = chat.participants.find((p) => p.user_id !== state.currentUser.id);
-  return other ? other.user.username : "Диалог";
-}
-
-function renderChatsList() {
-  chatsList.innerHTML = "";
-  if (!state.chats.length) {
-    chatsList.innerHTML = `<div class="empty-state">Нет диалогов. Воспользуйтесь поиском выше, чтобы начать общение!</div>`;
-    return;
-  }
-
-  state.chats.forEach((chat) => {
-    const card = document.createElement("div");
-    card.className = `chat-card ${state.activeChat && state.activeChat.id === chat.id ? "active" : ""}`;
-
-    const displayName = getChatDisplayName(chat);
-    const initial = displayName[0].toUpperCase();
-
-    card.innerHTML = `
-      <div class="avatar">${initial}</div>
-      <div class="chat-card-info">
-        <div class="chat-card-top">
-          <span class="chat-card-name">${escapeHtml(displayName)}</span>
-        </div>
-        <div class="chat-card-preview">${chat.is_group ? "👥 Группа" : "💬 Личное сообщение"}</div>
-      </div>
-    `;
-
-    card.addEventListener("click", () => selectChat(chat));
-    chatsList.appendChild(card);
-  });
-}
-
-async function selectChat(chat) {
-  state.activeChat = chat;
-  renderChatsList();
-
-  noChatSelected.classList.add("hidden");
-  chatHeader.classList.remove("hidden");
-  messagesContainer.classList.remove("hidden");
-  messageForm.classList.remove("hidden");
-
-  const displayName = getChatDisplayName(chat);
-  activeChatTitle.textContent = displayName;
-  activeChatAvatar.textContent = displayName[0].toUpperCase();
-  activeChatSubtitle.textContent = chat.is_group
-    ? `${chat.participants.length} участников`
-    : "Личные сообщения";
-
-  messagesList.innerHTML = `<div class="empty-state">Загрузка сообщений...</div>`;
-
-  try {
-    const res = await api(`/api/v1/chats/${chat.id}/messages?limit=50`);
-    if (!res.ok) throw new Error("Ошибка загрузки истории");
-    const messages = await res.json();
-    messagesList.innerHTML = "";
-    if (messages.length === 0) {
-      messagesList.innerHTML = `<div class="empty-state">Здесь пока нет сообщений. Напишите первым!</div>`;
-    } else {
-      messages.forEach(appendMessageToView);
-    }
-    scrollToBottom();
-  } catch (err) {
-    messagesList.innerHTML = `<div class="empty-state">${err.message}</div>`;
-  }
-}
-
-function appendMessageToView(msg) {
-  // Clear placeholder if present
-  const emptyState = messagesList.querySelector(".empty-state");
-  if (emptyState) emptyState.remove();
-
-  const isOutgoing = msg.sender_id === state.currentUser.id;
-  const row = document.createElement("div");
-  row.className = `message-row ${isOutgoing ? "outgoing" : "incoming"}`;
-
-  const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const senderName = msg.sender ? msg.sender.username : (msg.sender_username || "Собеседник");
-
-  row.innerHTML = `
-    ${!isOutgoing && state.activeChat && state.activeChat.is_group ? `<span class="message-sender">${escapeHtml(senderName)}</span>` : ""}
-    <div class="message-bubble">${escapeHtml(msg.content)}</div>
-    <span class="message-time">${timeStr}</span>
-  `;
-
-  messagesList.appendChild(row);
-}
-
-function scrollToBottom() {
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
-
-// --- Submit Message (IME Safe Enter-to-Submit) ---
-messageInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !event.shiftKey) {
-    event.preventDefault();
-
-    // IME safe submission check (Japanese, Chinese, Korean, Safari fallback)
-    if (event.isComposing || event.keyCode === 229) {
-      return;
-    }
-
-    messageForm.requestSubmit();
-  }
+tabDirect.addEventListener("click", () => {
+  tabDirect.classList.add("active");
+  tabGroup.classList.remove("active");
+  directTabContent.classList.remove("hidden");
+  groupForm.classList.add("hidden");
 });
 
-messageForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  if (!state.activeChat) return;
-
-  const content = messageInput.value.trim();
-  if (!content) return;
-
-  messageInput.value = "";
-  messageInput.style.height = "auto";
-
-  // Try sending via WebSocket first for lowest latency
-  if (state.ws && state.ws.readyState === WebSocket.OPEN) {
-    state.ws.send(
-      JSON.stringify({
-        action: "send_message",
-        chat_id: state.activeChat.id,
-        content: content,
-      })
-    );
-  } else {
-    // HTTP fallback
-    try {
-      await api(`/api/v1/chats/${state.activeChat.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-    } catch (err) {
-      alert("Не удалось отправить сообщение: " + err.message);
-    }
-  }
+tabGroup.addEventListener("click", () => {
+  tabGroup.classList.add("active");
+  tabDirect.classList.remove("active");
+  groupForm.classList.remove("hidden");
+  directTabContent.classList.add("hidden");
 });
 
-// --- Search Users & Start Chat ---
+// Живой поиск пользователей
 let searchDebounceTimer = null;
 userSearchInput.addEventListener("input", (e) => {
   clearTimeout(searchDebounceTimer);
-  const q = e.target.value.trim();
-  if (!q) {
-    searchResultsDropdown.classList.add("hidden");
+  const query = e.target.value.trim();
+
+  if (!query) {
+    userSearchResults.innerHTML = '<div class="empty-search-text">Введите имя для поиска собеседника</div>';
     return;
   }
 
   searchDebounceTimer = setTimeout(async () => {
     try {
-      const res = await api(`/api/v1/users/search?query=${encodeURIComponent(q)}`);
-      if (!res.ok) return;
+      const res = await api(`/api/v1/users/search?query=${encodeURIComponent(query)}`);
       const users = await res.json();
-      renderSearchResults(users);
+
+      if (!users || users.length === 0) {
+        userSearchResults.innerHTML = '<div class="empty-search-text">Пользователи не найдены</div>';
+        return;
+      }
+
+      userSearchResults.innerHTML = users.map(u => `
+        <div class="search-user-item">
+          <div class="search-user-info">
+            <img class="search-user-avatar" src="${getAvatarUrl(u.username)}" alt="${u.username}">
+            <div>
+              <strong>${u.username}</strong>
+              <div style="font-size: 11px; color: var(--text-muted)">ID: ${u.id} | ${u.email}</div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="startDirectChat(${u.id})">Начать диалог</button>
+        </div>
+      `).join("");
     } catch (err) {
-      console.error(err);
+      console.error("Ошибка поиска пользователей:", err);
     }
-  }, 250);
+  }, 300);
 });
 
-function renderSearchResults(users) {
-  searchResultsDropdown.innerHTML = "";
-  if (!users.length) {
-    searchResultsDropdown.innerHTML = `<div style="padding: 10px; color: var(--text-muted); font-size: 13px;">Никого не найдено</div>`;
-    searchResultsDropdown.classList.remove("hidden");
-    return;
-  }
-
-  users.forEach((u) => {
-    const item = document.createElement("div");
-    item.className = "search-item";
-    item.innerHTML = `
-      <div class="avatar" style="width: 28px; height: 28px; font-size: 13px;">${u.username[0].toUpperCase()}</div>
-      <span>${escapeHtml(u.username)}</span>
-    `;
-    item.addEventListener("click", async () => {
-      searchResultsDropdown.classList.add("hidden");
-      userSearchInput.value = "";
-      await openDirectChatWithUser(u.id);
-    });
-    searchResultsDropdown.appendChild(item);
-  });
-
-  searchResultsDropdown.classList.remove("hidden");
-}
-
-// Close search dropdown on click outside
-document.addEventListener("click", (e) => {
-  if (!userSearchInput.contains(e.target) && !searchResultsDropdown.contains(e.target)) {
-    searchResultsDropdown.classList.add("hidden");
-  }
-});
-
-async function openDirectChatWithUser(recipientId) {
+// Создание или переход в прямой чат
+window.startDirectChat = async function(recipientId) {
   try {
     const res = await api("/api/v1/chats/direct", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recipient_id: recipientId }),
+      body: JSON.stringify({ recipient_id: recipientId })
     });
-    if (!res.ok) throw new Error("Не удалось открыть чат");
+    if (!res.ok) throw new Error("Не удалось создать чат");
+
     const chat = await res.json();
-    await loadChats();
-    selectChat(chat);
+    closeNewChatModal();
+    await loadRooms();
+
+    // Переключаемся на созданный чат
+    chatComponent.roomId = String(chat.id);
   } catch (err) {
     alert(err.message);
   }
-}
+};
 
-// --- Group Chat Modal ---
-btnCreateGroupModal.addEventListener("click", () => {
-  groupModal.classList.remove("hidden");
-  groupError.classList.add("hidden");
-});
-
-btnCancelGroup.addEventListener("click", () => {
-  groupModal.classList.add("hidden");
-});
-
+// Создание группы
 groupForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   groupError.classList.add("hidden");
 
   const name = document.getElementById("group-name").value.trim();
-  const rawMembers = document.getElementById("group-members").value.trim();
+  const rawMembers = document.getElementById("group-members").value;
 
   const participantIds = rawMembers
     .split(",")
-    .map((s) => parseInt(s.trim()))
-    .filter((id) => !isNaN(id));
-
-  if (!participantIds.length) {
-    groupError.textContent = "Укажите хотя бы один корректный ID собеседника";
-    groupError.classList.remove("hidden");
-    return;
-  }
+    .map(x => parseInt(x.trim(), 10))
+    .filter(x => !isNaN(x));
 
   try {
     const res = await api("/api/v1/chats/group", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, participant_ids: participantIds }),
+      body: JSON.stringify({ name, participant_ids: participantIds })
     });
+
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "Ошибка создания группы");
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "Ошибка создания группы");
     }
-    const newGroup = await res.json();
-    groupModal.classList.add("hidden");
-    document.getElementById("group-name").value = "";
-    document.getElementById("group-members").value = "";
-    await loadChats();
-    selectChat(newGroup);
+
+    const chat = await res.json();
+    closeNewChatModal();
+    await loadRooms();
+    chatComponent.roomId = String(chat.id);
   } catch (err) {
     groupError.textContent = err.message;
     groupError.classList.remove("hidden");
   }
 });
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-// Start application
-initApp();
+// Запуск при старте страницы
+document.addEventListener("DOMContentLoaded", initApp);

@@ -612,3 +612,167 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+
+/* ========================================================
+   Vue Advanced Chat Layout & Top Navbar Additions
+   ======================================================== */
+.messenger-main-view {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.top-navbar {
+  height: 60px;
+  background: var(--bg-sidebar);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-icon {
+  font-size: 24px;
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.current-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 12px 4px 6px;
+  background: var(--bg-card-hover);
+  border-radius: 20px;
+}
+
+.user-badge-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-main);
+}
+
+.user-badge-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.status-badge {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.status-online {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.status-offline {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--bg-card-hover);
+}
+
+.chat-container-wrapper {
+  flex: 1;
+  height: calc(100vh - 60px);
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+vue-advanced-chat {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* User search in modal */
+.search-user-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  margin-bottom: 12px;
+}
+
+.search-user-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s;
+}
+
+.search-user-item:last-child {
+  border-bottom: none;
+}
+
+.search-user-item:hover {
+  background: var(--bg-card-hover);
+}
+
+.search-user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg-sidebar);
+}
+
+.empty-search-text {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}

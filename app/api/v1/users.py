@@ -26,6 +26,13 @@ async def search_users(
     return result.scalars().all()
 
 
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_profile(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+):
+    return current_user
+
+
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(
     user_id: int,

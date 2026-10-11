@@ -26,9 +26,8 @@ pip install -r requirements.txt
 
 ---
 
-### 2. Запуск PostgreSQL через Docker
+### 2. Запуск через Docker
 
-Если у вас установлен Docker, поднимите базу данных одной командой:
 ```bash
 docker compose up -d
 ```
@@ -37,17 +36,6 @@ docker compose up -d
 Параметры подключения заданы в файле `.env`.
 
 ---
-
-### 3. Запуск сервера
-
-Запустите сервер разработки:
-```bash
-python main.py
-```
-или через Uvicorn:
-```bash
-uvicorn main:app --reload
-```
 
 Приложение будет доступно по адресу: **http://127.0.0.1:8000**
 - Интерактивная документация Swagger UI: **http://127.0.0.1:8000/docs**

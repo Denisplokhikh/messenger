@@ -1,10 +1,10 @@
-# FastAPI Messenger Backend
+# FastAPI Messenger 
 
-Асинхронный бэкенд для мессенджера на **FastAPI**, **PostgreSQL** (SQLAlchemy 2.0 + asyncpg) и **WebSockets**.
+Мессенджер на **FastAPI**, **PostgreSQL** (SQLAlchemy 2.0 + asyncpg) и **WebSockets**.
 
 ---
 
-## 🚀 Быстрый старт
+##  Быстрый старт
 
 ### 1. Клонирование и настройка окружения
 Создайте и активируйте виртуальное окружение:
@@ -55,7 +55,7 @@ uvicorn main:app --reload
 
 ---
 
-## 📡 Основные эндпоинты
+## Основные эндпоинты
 
 ### Аутентификация (`/api/v1/auth`)
 - `POST /api/v1/auth/register` — регистрация нового пользователя
@@ -77,7 +77,7 @@ uvicorn main:app --reload
 
 ---
 
-## ⚡ WebSocket подключение в реальном времени
+##  WebSocket подключение в реальном времени
 
 Эндпоинт: `ws://127.0.0.1:8000/api/v1/ws?token=<ACCESS_TOKEN>`
 

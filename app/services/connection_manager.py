@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 from fastapi import WebSocket
 import json
@@ -10,8 +11,8 @@ class ConnectionManager:
         # Maps user_id -> set of active WebSockets (allows multiple tabs/devices)
         self.active_connections: dict[int, set[WebSocket]] = defaultdict(set)
 
-    async def connect(self, user_id: int, websocket: WebSocket):
-        await websocket.accept()
+    def connect(self, user_id: int, websocket: WebSocket):
+        # websocket.accept() уже вызывается в ws.py до аутентификации
         self.active_connections[user_id].add(websocket)
 
     def disconnect(self, user_id: int, websocket: WebSocket):
@@ -32,8 +33,9 @@ class ConnectionManager:
                 self.disconnect(user_id, dead)
 
     async def broadcast_to_users(self, message: dict, user_ids: list[int]):
-        for user_id in user_ids:
-            await self.send_personal_message(message, user_id)
+        await asyncio.gather(
+        *(self.send_personal_message(message, uid) for uid in user_ids),
+        return_exceptions=True)
 
 
 manager = ConnectionManager()

@@ -1,152 +1,261 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FastAPI Messenger</title>
-  <link rel="stylesheet" href="/static/style.css?v=2">
+
+  <!-- Tailwind CSS & Inter Font -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <link rel="stylesheet" href="/static/style.css?v=6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Vue Advanced Chat Web Component -->
-  <script src="https://cdn.jsdelivr.net/npm/vue-advanced-chat@2.1.2/dist/vue-advanced-chat.umd.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
-<body>
-  <div id="app" class="app-container">
+<body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden flex flex-col font-sans select-none">
 
-    <!-- Auth Modal (Shown when not logged in) -->
-    <div id="auth-modal" class="modal-backdrop">
-      <div class="modal-card">
-        <div class="modal-header">
-          <div class="logo-icon">💬</div>
-          <h2>FastAPI Messenger</h2>
-          <p class="subtitle">Быстрый мессенджер реального времени</p>
-        </div>
+  <!-- ==========================================
+       1. ГЛАВНЫЙ ИНТЕРФЕЙС МЕССЕНДЖЕРА
+       ========================================== -->
+  <div id="messenger-app" class="h-full w-full flex overflow-hidden hidden">
 
-        <div class="auth-tabs">
-          <button id="tab-login" class="tab-btn active" type="button">Вход</button>
-          <button id="tab-register" class="tab-btn" type="button">Регистрация</button>
-        </div>
-
-        <!-- Login Form -->
-        <form id="login-form" class="auth-form">
-          <div class="form-group">
-            <label for="login-username">Имя пользователя или Email</label>
-            <input type="text" id="login-username" placeholder="alex или alex@mail.com" required autocomplete="username">
-          </div>
-          <div class="form-group">
-            <label for="login-password">Пароль</label>
-            <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
-          </div>
-          <div id="login-error" class="form-error hidden"></div>
-          <button type="submit" class="btn btn-primary w-full">Войти</button>
-        </form>
-
-        <!-- Register Form -->
-        <form id="register-form" class="auth-form hidden">
-          <div class="form-group">
-            <label for="reg-username">Имя пользователя</label>
-            <input type="text" id="reg-username" placeholder="alex" required autocomplete="username">
-          </div>
-          <div class="form-group">
-            <label for="reg-email">Email</label>
-            <input type="email" id="reg-email" placeholder="alex@mail.com" required autocomplete="email">
-          </div>
-          <div class="form-group">
-            <label for="reg-password">Пароль</label>
-            <input type="password" id="reg-password" placeholder="Минимум 6 символов" required minlength="6" autocomplete="new-password">
-          </div>
-          <div id="register-error" class="form-error hidden"></div>
-          <button type="submit" class="btn btn-primary w-full">Зарегистрироваться</button>
-        </form>
-      </div>
-    </div>
-
-    <!-- Main Messenger View -->
-    <div id="messenger-view" class="messenger-main-view hidden">
-      <!-- Top Navigation Bar -->
-      <header class="top-navbar">
-        <div class="nav-brand">
-          <span class="brand-icon">💬</span>
-          <span class="brand-title">FastAPI Messenger</span>
-          <span id="ws-status" class="status-badge status-offline">● Офлайн</span>
-        </div>
-
-        <div class="nav-actions">
-          <button id="btn-new-chat" class="btn btn-primary btn-sm" type="button">+ Новый чат</button>
-          <a href="/static/profile.html" class="current-user-badge" title="Открыть профиль" style="text-decoration: none; cursor: pointer;">
-            <img id="user-avatar-img" class="user-badge-avatar" src="" alt="avatar">
-            <span id="current-username" class="user-badge-name">Загрузка...</span>
+    <!-- Левый сайдбар (Список диалогов и профиль) -->
+    <aside class="w-80 md:w-96 flex-shrink-0 flex flex-col bg-slate-900/90 border-r border-slate-800/80 backdrop-blur-md z-10">
+      
+      <!-- Шапка сайдбара -->
+      <div class="h-16 px-4 flex items-center justify-between border-b border-slate-800/80 flex-shrink-0">
+        <div class="flex items-center gap-3">
+          <!-- Аватарка профиля на левой стороне (ссылка на /profile) -->
+          <a href="/profile" id="user-profile-link" class="relative group" title="Открыть настройки профиля">
+            <img id="my-avatar" src="https://api.dicebear.com/7.x/identicon/svg?seed=user" alt="Профиль" class="w-9 h-9 rounded-full bg-slate-800 object-cover border-2 border-slate-700/80 group-hover:border-blue-500 transition-all shadow" />
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
           </a>
-          <button id="btn-logout" class="icon-btn" title="Выйти" type="button">🚪</button>
-        </div>
-      </header>
 
-      <!-- Vue Advanced Chat Container -->
-      <main class="chat-container-wrapper">
-        <vue-advanced-chat
-          id="chat-component"
-          height="100%"
-          theme="dark"
-          load-first-room="true"
-          rooms-loaded="true"
-          loading-rooms="false"
-          show-add-room="true"
-          show-search="true"
-          show-files="false"
-          show-audio="false"
-          show-emojis="true"
-        ></vue-advanced-chat>
-      </main>
-    </div>
-
-    <!-- New Chat / Group Modal -->
-    <div id="new-chat-modal" class="modal-backdrop hidden">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Начать диалог или создать группу</h3>
-          <p class="subtitle">Найдите пользователя или укажите название группы</p>
-        </div>
-
-        <div class="auth-tabs">
-          <button id="tab-direct" class="tab-btn active" type="button">Личный чат</button>
-          <button id="tab-group" class="tab-btn" type="button">Новая группа</button>
-        </div>
-
-        <!-- Direct Chat: Search Users -->
-        <div id="direct-chat-tab-content">
-          <div class="form-group">
-            <label for="user-search-input">Поиск пользователей</label>
-            <input type="text" id="user-search-input" placeholder="Введите имя пользователя..." autocomplete="off">
-          </div>
-          <div id="user-search-results" class="search-user-list">
-            <div class="empty-search-text">Введите имя для поиска собеседника</div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-base font-bold text-slate-100 tracking-tight">Messenger</span>
+            </div>
+            <!-- Статус сокета -->
+            <span id="ws-status" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/30">
+              ● Офлайн
+            </span>
           </div>
         </div>
 
-        <!-- Group Chat Form -->
-        <form id="group-form" class="hidden">
-          <div class="form-group">
-            <label for="group-name">Название группы</label>
-            <input type="text" id="group-name" placeholder="Например: Разработка" required>
-          </div>
-          <div class="form-group">
-            <label for="group-members">ID участников (через запятую)</label>
-            <input type="text" id="group-members" placeholder="например: 2, 3" required>
-          </div>
-          <div id="group-error" class="form-error hidden"></div>
-          <button type="submit" class="btn btn-primary w-full">Создать группу</button>
-        </form>
+        <div class="flex items-center gap-1.5">
+          <!-- Кнопка создания чата -->
+          <button id="btn-open-new-chat" type="button" class="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700/60 transition-all" title="Создать чат или группу">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
 
-        <div class="modal-actions" style="margin-top: 16px;">
-          <button type="button" id="btn-close-new-chat" class="btn btn-secondary w-full">Закрыть</button>
+          <!-- Кнопка выхода -->
+          <button id="btn-logout" type="button" class="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 border border-slate-700/60 transition-all" title="Выйти из аккаунта">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </div>
-    </div>
+
+      <!-- Поле поиска чатов -->
+      <div class="p-3 border-b border-slate-800/60 flex-shrink-0">
+        <div class="relative">
+          <input 
+            type="text" 
+            id="chat-search-input" 
+            placeholder="Поиск диалогов..." 
+            class="w-full pl-9 pr-4 py-2 bg-slate-950/70 border border-slate-800 rounded-xl text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+          />
+          <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Контейнер списка чатов -->
+      <div id="chat-list-container" class="flex-1 overflow-y-auto p-2 space-y-1">
+        <!-- Список чатов рендерится через ui.js -->
+      </div>
+    </aside>
+
+    <!-- Правая основная область чата -->
+    <main class="flex-1 flex flex-col bg-slate-950 relative overflow-hidden">
+      
+      <!-- Заглушка, когда диалог не выбран -->
+      <div id="empty-chat-view" class="flex-1 flex flex-col items-center justify-center p-8 text-center select-none">
+        <div class="w-20 h-20 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-4xl mb-4 shadow-xl">
+          💬
+        </div>
+        <h2 class="text-xl font-bold text-slate-200 mb-1">FastAPI Messenger</h2>
+        <p class="text-sm text-slate-400 max-w-sm">
+          Выберите диалог из списка слева или начните новый чат, нажав на кнопку «+».
+        </p>
+      </div>
+
+      <!-- Активный чат (скрыт по умолчанию, показывается при выборе диалога) -->
+      <div id="active-chat-view" class="flex-1 flex flex-col h-full overflow-hidden hidden">
+        
+        <!-- Шапка открытого чата -->
+        <header id="active-chat-header" class="h-16 px-6 flex items-center justify-between bg-slate-900/80 border-b border-slate-800/80 backdrop-blur-md flex-shrink-0 z-10">
+          <!-- Заполняется через ui.js -->
+        </header>
+
+        <!-- Лента сообщений -->
+        <div id="messages-container" class="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-2 select-text">
+          <!-- Сообщения рендерятся через ui.js (ВСЕ слева!) -->
+        </div>
+
+        <!-- Поле отправки сообщения (Message Composer) -->
+        <div class="p-3 md:p-4 bg-slate-900/80 border-t border-slate-800/80 backdrop-blur-md flex-shrink-0">
+          <form id="message-form" class="flex items-center gap-2.5 max-w-5xl mx-auto">
+            <input 
+              type="text" 
+              id="message-input" 
+              placeholder="Напишите сообщение... (Enter для отправки)" 
+              autocomplete="off"
+              class="flex-1 px-4 py-3 bg-slate-950/80 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-inner"
+            />
+            
+            <button 
+              type="submit" 
+              id="btn-send-message" 
+              class="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 flex-shrink-0"
+              title="Отправить (Enter)"
+            >
+              <span>Отправить</span>
+              <svg class="w-4 h-4 transform rotate-45" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+    </main>
 
   </div>
 
-  <script src="/static/app.js?v=2"></script>
+  <!-- ==========================================
+       2. МОДАЛЬНОЕ ОКНО АВТОРИЗАЦИИ
+       ========================================== -->
+  <div id="auth-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-7 shadow-2xl">
+      <div class="text-center mb-6">
+        <div class="text-4xl mb-2">💬</div>
+        <h2 class="text-2xl font-bold text-slate-100">FastAPI Messenger</h2>
+        <p class="text-xs text-slate-400 mt-1">Вход в систему обмена сообщениями</p>
+      </div>
+
+      <!-- Вкладки: Вход / Регистрация -->
+      <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-5">
+        <button id="tab-login" type="button" class="flex-1 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white transition-all">Вход</button>
+        <button id="tab-register" type="button" class="flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition-all">Регистрация</button>
+      </div>
+
+      <!-- Форма логина -->
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Имя пользователя или Email</label>
+          <input type="text" id="login-username" required autocomplete="username" placeholder="alex или alex@mail.com" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Пароль</label>
+          <input type="password" id="login-password" required autocomplete="current-password" placeholder="••••••••" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div id="login-error" class="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg hidden"></div>
+        <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm rounded-xl transition-all shadow-md">Войти</button>
+      </form>
+
+      <!-- Форма регистрации -->
+      <form id="register-form" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Имя пользователя (Логин)</label>
+          <input type="text" id="reg-username" required autocomplete="username" placeholder="alex" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Электронная почта</label>
+          <input type="email" id="reg-email" required autocomplete="email" placeholder="alex@mail.com" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Пароль (минимум 6 символов)</label>
+          <input type="password" id="reg-password" minlength="6" required autocomplete="new-password" placeholder="••••••••" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div id="register-error" class="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg hidden"></div>
+        <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm rounded-xl transition-all shadow-md">Зарегистрироваться</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       3. МОДАЛЬНОЕ ОКНО СОЗДАНИЯ ЧАТА / ГРУППЫ
+       ========================================== -->
+  <div id="new-chat-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4 hidden">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-slate-100">Создать диалог</h3>
+        <button id="btn-close-new-chat" type="button" class="text-slate-400 hover:text-white p-1">✕</button>
+      </div>
+
+      <!-- Вкладки: Личный диалог / Группа -->
+      <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800 mb-4">
+        <button id="tab-direct-chat" type="button" class="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white transition-all">Личный чат</button>
+        <button id="tab-group-chat" type="button" class="flex-1 py-1.5 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition-all">Новая группа</button>
+      </div>
+
+      <!-- Поиск пользователей для прямого чата -->
+      <div id="direct-chat-panel">
+        <div class="relative mb-3">
+          <input 
+            type="text" 
+            id="user-search-modal-input" 
+            placeholder="Введите имя собеседника..." 
+            class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all"
+          />
+        </div>
+        <div id="user-search-results" class="max-h-56 overflow-y-auto space-y-1.5">
+          <div class="text-center text-xs text-slate-500 py-6">Начните вводить имя пользователя</div>
+        </div>
+      </div>
+
+      <!-- Форма создания группы -->
+      <form id="group-chat-form" class="space-y-3 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Название группы</label>
+          <input type="text" id="group-name-input" required placeholder="Например: Разработка" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">ID участников (через запятую)</label>
+          <input type="text" id="group-members-input" required placeholder="например: 2, 3" class="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-all" />
+        </div>
+        <div id="group-error" class="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 p-2.5 rounded-lg hidden"></div>
+        <button type="submit" class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-xl transition-all shadow-md">Создать группу</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Главный модуль клиентской логики (ES Module) -->
+  <script type="module" src="/static/app.js?v=7"></script>
 </body>
 </html>

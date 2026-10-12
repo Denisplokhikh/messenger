@@ -67,7 +67,18 @@ docker compose up -d
 
 ##  WebSocket подключение в реальном времени
 
-Эндпоинт: `ws://127.0.0.1:8000/api/v1/ws?token=<ACCESS_TOKEN>`
+Эндпоинт: `ws://127.0.0.1:8000/api/v1/ws`
+
+### Аутентификация:
+После открытия соединения клиент отправляет первым сообщением пакет авторизации:
+```json
+{
+  "type": "authenticate",
+  "token": "<ACCESS_TOKEN>"
+}
+```
+*(Также поддерживается формат GraphQL-ws: `{"type": "connection_init", "payload": {"token": "<ACCESS_TOKEN>"}}`)*.  
+При успешной проверке токена сервер возвращает событие `{"event": "connected", "type": "connection_ack", "user_id": 1, ...}`.
 
 ### Пример отправки сообщения через WebSocket:
 ```json

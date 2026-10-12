@@ -22,6 +22,8 @@ services:
     volumes:
       - ./static:/app/static
       - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./alembic.ini:/app/alembic.ini
     ports:
       - "8000:8000"
     depends_on:

@@ -1,11 +1,19 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_active_user, get_db
+from app.models.chat_participant import ChatParticipant
+from app.models.message import Message
 from app.models.user import User
-from app.schemas.user import UserResponse
+from app.schemas.user import (
+    ChangePasswordRequest,
+    UserResponse,
+    UserStatsResponse,
+    UserUpdate,
+)
+from app.utils.security import get_password_hash, verify_password
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -31,6 +39,87 @@ async def get_current_user_profile(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
     return current_user
+
+
+@router.patch("/me", response_model=UserResponse)
+async def update_current_user_profile(
+    user_update: UserUpdate,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    # Check username uniqueness if changed
+    if user_update.username and user_update.username != current_user.username:
+        existing = await db.execute(
+            select(User).where(User.username == user_update.username, User.id != current_user.id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Имя пользователя уже занято",
+            )
+        current_user.username = user_update.username
+
+    # Check email uniqueness if changed
+    if user_update.email and user_update.email != current_user.email:
+        existing = await db.execute(
+            select(User).where(User.email == user_update.email, User.id != current_user.id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email уже используется другим аккаунтом",
+            )
+        current_user.email = user_update.email
+
+    if user_update.full_name is not None:
+        current_user.full_name = user_update.full_name
+    if user_update.bio is not None:
+        current_user.bio = user_update.bio
+    if user_update.avatar_url is not None:
+        current_user.avatar_url = user_update.avatar_url
+
+    await db.commit()
+    await db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if not verify_password(req.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный текущий пароль",
+        )
+    if len(req.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Новый пароль должен содержать минимум 6 символов",
+        )
+    current_user.hashed_password = get_password_hash(req.new_password)
+    await db.commit()
+    return {"message": "Пароль успешно изменен"}
+
+
+@router.get("/me/stats", response_model=UserStatsResponse)
+async def get_user_stats(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    chats_res = await db.execute(
+        select(func.count(ChatParticipant.id)).where(ChatParticipant.user_id == current_user.id)
+    )
+    chats_count = chats_res.scalar() or 0
+
+    msgs_res = await db.execute(
+        select(func.count(Message.id)).where(Message.sender_id == current_user.id)
+    )
+    msgs_count = msgs_res.scalar() or 0
+
+    return UserStatsResponse(chats_count=chats_count, messages_count=msgs_count)
 
 
 @router.get("/{user_id}", response_model=UserResponse)

@@ -5,6 +5,8 @@ from pydantic import BaseModel, EmailStr, ConfigDict
 class UserBase(BaseModel):
     username: str
     email: EmailStr
+    full_name: str | None = None
+    bio: str | None = None
 
 
 class UserCreate(UserBase):
@@ -14,6 +16,24 @@ class UserCreate(UserBase):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+class UserUpdate(BaseModel):
+    username: str | None = None
+    email: EmailStr | None = None
+    full_name: str | None = None
+    bio: str | None = None
+    avatar_url: str | None = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class UserStatsResponse(BaseModel):
+    chats_count: int
+    messages_count: int
 
 
 class UserResponse(UserBase):

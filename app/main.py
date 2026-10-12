@@ -5,9 +5,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+import asyncio
+import logging
+from alembic import command
+from alembic.config import Config
+
 from app.api.v1.router import api_v1_router
 from app.config import settings
-from app.database import Base, engine
+from app.database import engine
+
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -15,9 +22,16 @@ STATIC_DIR = BASE_DIR / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # In development mode, auto-create tables if they don't exist yet
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Automatically apply Alembic migrations on startup
+    try:
+        alembic_ini_path = BASE_DIR / "alembic.ini"
+        if alembic_ini_path.exists():
+            alembic_cfg = Config(str(alembic_ini_path))
+            await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+            logger.info("Alembic database migrations applied successfully.")
+    except Exception as e:
+        logger.warning(f"Alembic auto-migration warning: {e}")
+
     yield
     # Cleanup database engine connections on shutdown
     await engine.dispose()
@@ -52,6 +66,24 @@ async def serve_index():
     if index_file.exists():
         return FileResponse(index_file)
     return {"message": "Frontend not found"}
+
+@app.get("/profile", include_in_schema=False)
+async def serve_profile():
+    profile_file = STATIC_DIR / "profile.html"
+    if profile_file.exists():
+        return FileResponse(profile_file)
+    
+    return {"message":"Profile page not found"}
+@app.get("/static/app.js", include_in_schema=False)
+async def serve_app_js():
+    """Отдаём главный JS без кеша — браузер всегда берёт свежую версию."""
+    js_file = STATIC_DIR / "app.js"
+    if js_file.exists():
+        return FileResponse(
+            js_file,
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
+    return {"message": "app.js not found"}
 
 
 @app.get("/api/health", tags=["Health"])

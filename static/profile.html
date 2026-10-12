@@ -4,655 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Профиль пользователя | FastAPI Messenger</title>
+  
+  <!-- Tailwind CSS & Inter Font -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            dark: {
+              bg: '#0b0f19',
+              surface: '#111928',
+              elevated: '#162238',
+              card: '#131d33',
+              border: '#1f2e4d',
+              input: '#090e1a'
+            }
+          }
+        }
+      }
+    };
+  </script>
+  
+  <link rel="stylesheet" href="/static/style.css?v=6">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg-body: #0b0f19;
-      --bg-surface: #131b2e;
-      --bg-surface-elevated: #1a243c;
-      --bg-card: #151f36;
-      --bg-input: #0c1322;
-      --border-subtle: #232f4a;
-      --border-focus: #3b82f6;
-      --primary: #3b82f6;
-      --primary-hover: #2563eb;
-      --primary-glow: rgba(59, 130, 246, 0.25);
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --text-main: #f8fafc;
-      --text-muted: #8b9bb4;
-      --text-dim: #64748b;
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 18px;
-      --radius-full: 9999px;
-      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      --shadow-card: 0 12px 30px -10px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.3);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
-
-    body {
-      background-color: var(--bg-body);
-      color: var(--text-main);
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow-x: hidden;
-      line-height: 1.5;
-    }
-
-    /* Ambient background lighting */
-    body::before {
-      content: "";
-      position: fixed;
-      top: -20%;
-      left: 20%;
-      width: 60vw;
-      height: 40vh;
-      background: radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, rgba(15, 23, 42, 0) 70%);
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* Header Nav */
-    .profile-nav {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      background: rgba(11, 15, 25, 0.85);
-      border-bottom: 1px solid var(--border-subtle);
-      padding: 14px 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .nav-left {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .btn-back {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-muted);
-      text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
-      padding: 8px 14px;
-      border-radius: var(--radius-sm);
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      transition: var(--transition);
-      cursor: pointer;
-    }
-
-    .btn-back:hover {
-      color: var(--text-main);
-      background: var(--bg-surface-elevated);
-      border-color: var(--border-focus);
-      transform: translateX(-2px);
-    }
-
-    .nav-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    /* Main Container */
-    .profile-container {
-      max-width: 960px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 24px 20px 60px;
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-    }
-
-    /* Hero Card with Cover & Avatar */
-    .profile-hero-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      overflow: hidden;
-      box-shadow: var(--shadow-card);
-      position: relative;
-    }
-
-    .cover-banner {
-      height: 160px;
-      background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #06b6d4 100%);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .cover-banner::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.2) 0%, transparent 60%),
-                  linear-gradient(to bottom, transparent 60%, rgba(21, 31, 54, 0.9) 100%);
-    }
-
-    .hero-content {
-      padding: 0 28px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      position: relative;
-    }
-
-    .hero-top-row {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      margin-top: -64px;
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .avatar-wrapper {
-      position: relative;
-      width: 120px;
-      height: 120px;
-      border-radius: var(--radius-full);
-      padding: 4px;
-      background: var(--bg-card);
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    .avatar-img {
-      width: 100%;
-      height: 100%;
-      border-radius: var(--radius-full);
-      object-fit: cover;
-      background: var(--bg-surface-elevated);
-      display: block;
-    }
-
-    .avatar-status-badge {
-      position: absolute;
-      bottom: 8px;
-      right: 8px;
-      width: 18px;
-      height: 18px;
-      background: var(--success);
-      border: 3px solid var(--bg-card);
-      border-radius: var(--radius-full);
-      box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
-    }
-
-    .avatar-edit-overlay {
-      position: absolute;
-      inset: 4px;
-      border-radius: var(--radius-full);
-      background: rgba(11, 15, 25, 0.6);
-      backdrop-filter: blur(4px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      opacity: 0;
-      transition: var(--transition);
-      cursor: pointer;
-      color: #fff;
-      font-size: 20px;
-    }
-
-    .avatar-wrapper:hover .avatar-edit-overlay {
-      opacity: 1;
-    }
-
-    .hero-user-details {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .user-name-title {
-      font-size: 24px;
-      font-weight: 800;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .verified-icon {
-      color: var(--primary);
-      font-size: 18px;
-      title: "Подтверждённый аккаунт";
-    }
-
-    .user-handle-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text-muted);
-      font-size: 14px;
-    }
-
-    .btn-copy-id {
-      background: transparent;
-      border: none;
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 12px;
-      padding: 2px 6px;
-      border-radius: var(--radius-sm);
-      transition: var(--transition);
-    }
-
-    .btn-copy-id:hover {
-      color: var(--primary);
-      background: rgba(59, 130, 246, 0.1);
-    }
-
-    .user-bio-text {
-      color: var(--text-muted);
-      font-size: 14px;
-      max-width: 600px;
-      margin-top: 4px;
-    }
-
-    /* Stats Quick Bar */
-    .stats-bar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 12px;
-      margin-top: 8px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border-subtle);
-    }
-
-    .stat-box {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 12px 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .stat-label {
-      font-size: 12px;
-      color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      font-weight: 600;
-    }
-
-    .stat-value {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    /* Layout Columns (Tabs / Navigation & Content) */
-    .profile-body-grid {
-      display: grid;
-      grid-template-columns: 240px 1fr;
-      gap: 24px;
-      align-items: flex-start;
-    }
-
-    /* Sidebar Navigation Tabs */
-    .profile-tabs-sidebar {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      box-shadow: var(--shadow-card);
-    }
-
-    .tab-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      border-radius: var(--radius-md);
-      color: var(--text-muted);
-      font-size: 14px;
-      font-weight: 500;
-      background: transparent;
-      border: none;
-      width: 100%;
-      text-align: left;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-
-    .tab-item:hover {
-      background: var(--bg-surface);
-      color: var(--text-main);
-    }
-
-    .tab-item.active {
-      background: var(--primary);
-      color: #ffffff;
-      font-weight: 600;
-      box-shadow: 0 4px 12px var(--primary-glow);
-    }
-
-    .tab-icon {
-      font-size: 18px;
-      line-height: 1;
-    }
-
-    /* Panels Container */
-    .panels-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .tab-panel {
-      display: none;
-      animation: fadeIn 0.25s ease-out forwards;
-    }
-
-    .tab-panel.active {
-      display: block;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Settings Card */
-    .settings-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 24px;
-      box-shadow: var(--shadow-card);
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-    }
-
-    .card-header {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .card-title {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .card-desc {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-
-    /* Form Fields */
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-    }
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .form-group.full-width {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-muted);
-    }
-
-    .input-field, .textarea-field {
-      background: var(--bg-input);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      padding: 10px 14px;
-      color: var(--text-main);
-      font-size: 14px;
-      outline: none;
-      transition: var(--transition);
-      width: 100%;
-    }
-
-    .input-field:focus, .textarea-field:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px var(--primary-glow);
-    }
-
-    .input-field:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    .textarea-field {
-      resize: vertical;
-      min-height: 80px;
-    }
-
-    /* Toggle Option Rows */
-    .toggle-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 16px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-md);
-      gap: 16px;
-    }
-
-    .toggle-info {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .toggle-title {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .toggle-desc {
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-
-    /* Switch Component */
-    .switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-      flex-shrink: 0;
-    }
-
-    .switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-
-    .slider {
-      position: absolute;
-      cursor: pointer;
-      inset: 0;
-      background-color: var(--bg-input);
-      border: 1px solid var(--border-subtle);
-      transition: .3s;
-      border-radius: var(--radius-full);
-    }
-
-    .slider:before {
-      position: absolute;
-      content: "";
-      height: 16px;
-      width: 16px;
-      left: 3px;
-      bottom: 3px;
-      background-color: var(--text-muted);
-      transition: .3s;
-      border-radius: 50%;
-    }
-
-    input:checked + .slider {
-      background-color: var(--primary);
-      border-color: var(--primary);
-    }
-
-    input:checked + .slider:before {
-      transform: translateX(20px);
-      background-color: #ffffff;
-    }
-
-    /* Action Buttons */
-    .card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 12px;
-      padding-top: 16px;
-      border-top: 1px solid var(--border-subtle);
-    }
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      padding: 10px 18px;
-      border-radius: var(--radius-md);
-      cursor: pointer;
-      border: none;
-      transition: var(--transition);
-    }
-
-    .btn-primary {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background: var(--primary-hover);
-      box-shadow: 0 4px 14px var(--primary-glow);
-    }
-
-    .btn-secondary {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-    }
-
-    .btn-secondary:hover {
-      background: var(--bg-surface-elevated);
-      border-color: var(--border-focus);
-    }
-
-    .btn-danger {
-      background: rgba(239, 68, 68, 0.15);
-      color: var(--danger);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-
-    .btn-danger:hover {
-      background: var(--danger);
-      color: #fff;
-    }
-
-    /* Danger Card */
-    .danger-card {
-      border-color: rgba(239, 68, 68, 0.3);
-      background: rgba(239, 68, 68, 0.03);
-    }
-
-    /* Toast Notification */
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
-    }
-
-    .toast {
-      pointer-events: auto;
-      background: var(--bg-surface-elevated);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-main);
-      padding: 12px 20px;
-      border-radius: var(--radius-md);
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-      animation: slideIn 0.3s ease-out forwards;
-    }
-
-    .toast.success { border-color: var(--success); }
-    .toast.danger { border-color: var(--danger); }
-
-    @keyframes slideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .profile-body-grid {
-        grid-template-columns: 1fr;
-      }
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
-      .hero-top-row {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-    }
-  </style>
 </head>
 <body>
 
@@ -690,17 +68,16 @@
 
         <div class="hero-user-details">
           <h1 class="user-name-title">
-            <span id="display-fullname">Алексей Смирнов</span>
-            <span class="verified-icon">✓</span>
+            <span id="display-fullname">Алексей</span>
           </h1>
           <div class="user-handle-wrap">
             <span id="display-username">@alex</span>
             <span>•</span>
-            <span id="display-id">ID: 6</span>
+            <span id="display-id">ID: 1</span>
             <button class="btn-copy-id" id="btn-copy-handle" title="Скопировать юзернейм">📋 Скопировать</button>
           </div>
           <p class="user-bio-text" id="display-bio">
-            Senior Backend Developer. Изучаю FastAPI, WebSockets и распределённые системы.
+            Участник FastAPI Messenger. Мгновенные сообщения, надежные веб-сокеты и шифрование.
           </p>
         </div>
 
@@ -708,11 +85,11 @@
         <div class="stats-bar">
           <div class="stat-box">
             <span class="stat-label">Диалогов</span>
-            <span class="stat-value" id="stat-chats-count">12</span>
+            <span class="stat-value" id="stat-chats-count">Active</span>
           </div>
           <div class="stat-box">
             <span class="stat-label">Сообщений</span>
-            <span class="stat-value" id="stat-msgs-count">1,482</span>
+            <span class="stat-value" id="stat-msgs-count">100%</span>
           </div>
           <div class="stat-box">
             <span class="stat-label">Шифрование</span>
@@ -772,12 +149,12 @@
 
               <div class="form-group">
                 <label for="input-fullname">Отображаемое имя</label>
-                <input type="text" id="input-fullname" class="input-field" value="Алексей Смирнов">
+                <input type="text" id="input-fullname" class="input-field" value="Алексей">
               </div>
 
               <div class="form-group">
                 <label for="input-email">Электронная почта</label>
-                <input type="email" id="input-email" class="input-field" value="alex@messenger.local" required>
+                <input type="email" id="input-email" class="input-field" value="alex@example.com" required>
               </div>
 
               <div class="form-group">
@@ -787,7 +164,7 @@
 
               <div class="form-group full-width">
                 <label for="input-bio">О себе (Био)</label>
-                <textarea id="input-bio" class="textarea-field" placeholder="Пара слов о себе или ваш текущий статус...">Senior Backend Developer. Изучаю FastAPI, WebSockets и распределённые системы.</textarea>
+                <textarea id="input-bio" class="textarea-field" rows="3" placeholder="Пара слов о себе или ваш текущий статус...">Участник FastAPI Messenger. Мгновенные сообщения, надежные веб-сокеты и шифрование.</textarea>
               </div>
             </div>
 
@@ -813,7 +190,7 @@
               </div>
               <div class="form-group">
                 <label for="input-new-pass">Новый пароль</label>
-                <input type="password" id="input-new-pass" class="input-field" placeholder="Минимум 8 символов" required minlength="8">
+                <input type="password" id="input-new-pass" class="input-field" placeholder="Минимум 6 символов" required minlength="6">
               </div>
               <div class="form-group">
                 <label for="input-confirm-pass">Повторите новый пароль</label>
@@ -903,8 +280,8 @@
 
             <div class="form-group">
               <label>Цветовая схема</label>
-              <div style="display: flex; gap: 12px; margin-top: 6px;">
-                <button class="btn btn-primary" type="button">🌑 Тёмная (Dark Midnight)</button>
+              <div style="display: flex; gap: 12px; margin-top: 6px; flex-wrap: wrap;">
+                <button class="btn btn-primary" type="button">🌑 Тёмная (Dark Slate)</button>
                 <button class="btn btn-secondary" type="button">🌌 Неоновая (Cyberpunk)</button>
                 <button class="btn btn-secondary" type="button">☀️ Светлая (Light)</button>
               </div>
@@ -953,7 +330,7 @@
             <div class="toggle-row" style="background: rgba(239, 68, 68, 0.08); border-color: rgba(239, 68, 68, 0.3);">
               <div class="toggle-info">
                 <span class="toggle-title" style="color: var(--danger);">Удалить аккаунт навсегда</span>
-                <span class="toggle-desc">Безвозвратное удаление всех ваших диалогов, вложений и истории сообщений</span>
+                <span class="toggle-desc">Безвозвратное удаление всех ваших диалогов и истории сообщений</span>
               </div>
               <button class="btn btn-danger" id="btn-delete-account">Удалить аккаунт</button>
             </div>
@@ -967,8 +344,13 @@
   <!-- Toast Container -->
   <div class="toast-container" id="toast-box"></div>
 
-  <!-- Interactive Demo Script -->
-  <script>
+  <!-- Interactive Script (ES Module) -->
+  <script type="module">
+    import { api } from '/static/js/api.js';
+    import { state, getAvatarUrl } from '/static/js/state.js';
+
+    let currentAvatarUrl = null;
+
     // 1. Tab Switching Logic
     const tabButtons = document.querySelectorAll('.tab-item');
     const tabPanels = document.querySelectorAll('.tab-panel');
@@ -991,6 +373,7 @@
     // 2. Toast Notifications
     function showToast(message, type = 'success') {
       const box = document.getElementById('toast-box');
+      if (!box) return;
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
       toast.innerHTML = `<span>${type === 'success' ? '✓' : '⚠️'}</span> <span>${message}</span>`;
@@ -1001,7 +384,7 @@
         toast.style.transform = 'translateX(100%)';
         toast.style.transition = 'all 0.3s ease-out';
         setTimeout(() => toast.remove(), 300);
-      }, 3000);
+      }, 3500);
     }
 
     // 3. Random Avatar Generator (DiceBear)
@@ -1011,81 +394,177 @@
 
     function randomizeAvatar() {
       const seed = Math.random().toString(36).substring(2, 9);
-      avatarImg.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${seed}`;
-      showToast('Сгенерирован новый аватар!');
+      currentAvatarUrl = `https://api.dicebear.com/7.x/identicon/svg?seed=${seed}`;
+      avatarImg.src = currentAvatarUrl;
+      showToast('Сгенерирован новый аватар. Нажмите «Сохранить», чтобы применить его!', 'success');
     }
 
-    btnRandomAvatar.addEventListener('click', randomizeAvatar);
-    btnChangeAvatar.addEventListener('click', randomizeAvatar);
+    if (btnRandomAvatar) btnRandomAvatar.addEventListener('click', randomizeAvatar);
+    if (btnChangeAvatar) btnChangeAvatar.addEventListener('click', randomizeAvatar);
 
     // 4. Copy Username / Handle
     const btnCopyHandle = document.getElementById('btn-copy-handle');
-    btnCopyHandle.addEventListener('click', () => {
-      const username = document.getElementById('display-username').textContent;
-      navigator.clipboard.writeText(username).then(() => {
-        showToast('Имя пользователя скопировано в буфер!');
+    if (btnCopyHandle) {
+      btnCopyHandle.addEventListener('click', () => {
+        const username = document.getElementById('display-username').textContent;
+        navigator.clipboard.writeText(username).then(() => {
+          showToast('Имя пользователя скопировано в буфер!');
+        }).catch(() => {
+          showToast('Не удалось скопировать', 'danger');
+        });
       });
-    });
+    }
 
-    // 5. Form Submissions
-    document.getElementById('form-general').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const username = document.getElementById('input-username').value;
-      const fullname = document.getElementById('input-fullname').value;
-      const bio = document.getElementById('input-bio').value;
-
-      document.getElementById('display-username').textContent = `@${username}`;
-      document.getElementById('display-fullname').textContent = fullname || username;
-      document.getElementById('display-bio').textContent = bio;
-
-      showToast('Профиль успешно обновлён!');
-    });
-
-    document.getElementById('btn-quick-save').addEventListener('click', () => {
-      document.getElementById('form-general').dispatchEvent(new Event('submit'));
-    });
-
-    document.getElementById('form-password').addEventListener('submit', (e) => {
-      e.preventDefault();
-      const newPass = document.getElementById('input-new-pass').value;
-      const confirmPass = document.getElementById('input-confirm-pass').value;
-
-      if (newPass !== confirmPass) {
-        showToast('Пароли не совпадают!', 'danger');
+    // 5. Load User Data & Stats from Server
+    async function loadUserData() {
+      if (!state.token) {
+        window.location.href = '/';
         return;
       }
-      showToast('Пароль успешно изменён!');
-      e.target.reset();
-    });
-
-    document.getElementById('btn-regen-keys').addEventListener('click', () => {
-      showToast('Сгенерирована новая пара E2E-ключей!');
-    });
-
-    // 6. Pre-fill user data from existing localStorage session if present
-    async function loadCurrentUserData() {
-      const token = localStorage.getItem('access_token');
-      if (!token) return;
 
       try {
-        const res = await fetch('/api/v1/users/me', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const user = await res.json();
-          document.getElementById('input-username').value = user.username;
-          document.getElementById('input-email').value = user.email;
-          document.getElementById('display-username').textContent = `@${user.username}`;
-          document.getElementById('display-fullname').textContent = user.username;
-          document.getElementById('display-id').textContent = `ID: ${user.id}`;
-          avatarImg.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(user.username)}`;
+        const user = await api.getMe();
+        state.currentUser = user;
+
+        document.getElementById('input-username').value = user.username || '';
+        document.getElementById('input-fullname').value = user.full_name || '';
+        document.getElementById('input-email').value = user.email || '';
+        document.getElementById('input-bio').value = user.bio || '';
+
+        document.getElementById('display-username').textContent = `@${user.username}`;
+        document.getElementById('display-fullname').textContent = user.full_name || user.username;
+        document.getElementById('display-id').textContent = `ID: ${user.id}`;
+        if (user.bio) {
+          document.getElementById('display-bio').textContent = user.bio;
+        }
+
+        currentAvatarUrl = user.avatar_url || getAvatarUrl(user.username);
+        avatarImg.src = currentAvatarUrl;
+
+        if (user.created_at) {
+          const date = new Date(user.created_at);
+          document.getElementById('stat-reg-date').textContent = date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' });
         }
       } catch (err) {
-        console.log('Демо-режим профиля (бэкенд не запрошен):', err);
+        console.error('Ошибка загрузки профиля:', err);
+        showToast(err.message || 'Ошибка загрузки профиля', 'danger');
+        if (err.message && err.message.includes('Сессия истекла')) {
+          setTimeout(() => { window.location.href = '/'; }, 1500);
+        }
+      }
+
+      try {
+        const stats = await api.getUserStats();
+        const statChats = document.getElementById('stat-chats-count');
+        const statMsgs = document.getElementById('stat-msgs-count');
+        if (statChats) statChats.textContent = stats.chats_count;
+        if (statMsgs) statMsgs.textContent = stats.messages_count;
+      } catch (err) {
+        console.error('Ошибка загрузки статистики:', err);
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadCurrentUserData);
+    // 6. Form General Submission (Save Profile)
+    const formGeneral = document.getElementById('form-general');
+    const btnQuickSave = document.getElementById('btn-quick-save');
+
+    async function handleSaveProfile(e) {
+      if (e) e.preventDefault();
+
+      const username = document.getElementById('input-username').value.trim();
+      const fullName = document.getElementById('input-fullname').value.trim();
+      const email = document.getElementById('input-email').value.trim();
+      const bio = document.getElementById('input-bio').value.trim();
+
+      if (!username || !email) {
+        showToast('Имя пользователя и Email обязательны для заполнения!', 'danger');
+        return;
+      }
+
+      try {
+        const payload = {
+          username: username,
+          full_name: fullName,
+          email: email,
+          bio: bio,
+          avatar_url: currentAvatarUrl,
+        };
+
+        const updatedUser = await api.updateProfile(payload);
+        state.currentUser = updatedUser;
+
+        document.getElementById('display-username').textContent = `@${updatedUser.username}`;
+        document.getElementById('display-fullname').textContent = updatedUser.full_name || updatedUser.username;
+        document.getElementById('display-bio').textContent = updatedUser.bio || 'Участник FastAPI Messenger.';
+
+        showToast('Профиль успешно сохранён!', 'success');
+      } catch (err) {
+        showToast(err.message || 'Ошибка при сохранении профиля', 'danger');
+      }
+    }
+
+    if (formGeneral) formGeneral.addEventListener('submit', handleSaveProfile);
+    if (btnQuickSave) btnQuickSave.addEventListener('click', handleSaveProfile);
+
+    // 7. Form Password Submission
+    const formPassword = document.getElementById('form-password');
+    if (formPassword) {
+      formPassword.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const curPass = document.getElementById('input-cur-pass').value;
+        const newPass = document.getElementById('input-new-pass').value;
+        const confirmPass = document.getElementById('input-confirm-pass').value;
+
+        if (newPass !== confirmPass) {
+          showToast('Новый пароль и подтверждение не совпадают!', 'danger');
+          return;
+        }
+
+        if (newPass.length < 6) {
+          showToast('Пароль должен содержать минимум 6 символов!', 'danger');
+          return;
+        }
+
+        try {
+          await api.changePassword(curPass, newPass);
+          showToast('Пароль успешно изменён!', 'success');
+          formPassword.reset();
+        } catch (err) {
+          showToast(err.message || 'Ошибка при смене пароля', 'danger');
+        }
+      });
+    }
+
+    // 8. E2E Keys generation toast simulation
+    const btnRegenKeys = document.getElementById('btn-regen-keys');
+    if (btnRegenKeys) {
+      btnRegenKeys.addEventListener('click', () => {
+        showToast('Сгенерирована новая пара E2E-ключей!', 'success');
+      });
+    }
+
+    // 9. Danger Zone: Logout / Terminate Sessions
+    const btnTerminate = document.getElementById('btn-terminate-sessions');
+    if (btnTerminate) {
+      btnTerminate.addEventListener('click', () => {
+        localStorage.removeItem('access_token');
+        showToast('Сессия завершена. Перенаправление...', 'success');
+        setTimeout(() => { window.location.href = '/'; }, 800);
+      });
+    }
+
+    const btnDelete = document.getElementById('btn-delete-account');
+    if (btnDelete) {
+      btnDelete.addEventListener('click', () => {
+        if (confirm('Вы действительно хотите удалить аккаунт? Это действие необратимо.')) {
+          localStorage.removeItem('access_token');
+          window.location.href = '/';
+        }
+      });
+    }
+
+    // 10. Start loading
+    document.addEventListener('DOMContentLoaded', loadUserData);
   </script>
 </body>
 </html>

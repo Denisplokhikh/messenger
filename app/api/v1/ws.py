@@ -1,6 +1,7 @@
+import asyncio
 from datetime import datetime, timezone
 import json
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,18 +39,40 @@ async def authenticate_ws(token: str | None) -> User | None:
 @router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str | None = Query(default=None),
 ):
-    user = await authenticate_ws(token)
+    await websocket.accept()
+
+    # Ожидаем пакет авторизации первым сообщением с таймаутом
+    user = None
+    try:
+        raw_auth = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        auth_data = json.loads(raw_auth)
+
+        token = None
+        if isinstance(auth_data, dict):
+            # Поддержка стандартов GraphQL-ws (connection_init) и прямого события authenticate/auth
+            msg_type = auth_data.get("type") or auth_data.get("action")
+            if msg_type in ("authenticate", "auth", "connection_init"):
+                payload = auth_data.get("payload")
+                if isinstance(payload, dict) and "token" in payload:
+                    token = payload.get("token")
+                else:
+                    token = auth_data.get("token")
+
+        user = await authenticate_ws(token)
+    except (asyncio.TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
+        user = None
+
     if not user:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    await manager.connect(user.id, websocket)
+    manager.connect(user.id, websocket)
 
-    # Notify self of successful connection
+    # Уведомляем клиента об успешном подключении и готовности к работе
     await websocket.send_json({
         "event": "connected",
+        "type": "connection_ack",
         "user_id": user.id,
         "username": user.username,
     })

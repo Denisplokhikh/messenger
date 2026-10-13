@@ -41,7 +41,7 @@
         <span>←</span>
         <span>К чатам</span>
       </a>
-      <span class="nav-title">Настройки профиля</span>
+      <span class="nav-title" id="page-nav-title">Настройки профиля</span>
     </div>
     <div class="nav-actions">
       <button class="btn btn-primary" id="btn-quick-save">Сохранить</button>
@@ -57,47 +57,46 @@
       <div class="hero-content">
         <div class="hero-top-row">
           <div class="avatar-wrapper">
-            <img id="profile-avatar" class="avatar-img" src="https://api.dicebear.com/7.x/identicon/svg?seed=alex" alt="Аватар">
+            <img id="profile-avatar" class="avatar-img" src="https://api.dicebear.com/7.x/identicon/svg?seed=user" alt="Аватар">
             <span class="avatar-status-badge" title="В сети"></span>
             <div class="avatar-edit-overlay" id="btn-change-avatar" title="Сменить аватар">
               📷
             </div>
           </div>
           <button class="btn btn-secondary" id="btn-random-avatar">🎲 Случайный аватар</button>
+          <button class="btn btn-primary" id="btn-start-chat" style="display: none;">💬 Написать сообщение</button>
         </div>
 
         <div class="hero-user-details">
           <h1 class="user-name-title">
-            <span id="display-fullname">Алексей</span>
+            <span id="display-fullname">—</span>
           </h1>
           <div class="user-handle-wrap">
-            <span id="display-username">@alex</span>
+            <span id="display-username">@...</span>
             <span>•</span>
-            <span id="display-id">ID: 1</span>
+            <span id="display-id">ID: —</span>
             <button class="btn-copy-id" id="btn-copy-handle" title="Скопировать юзернейм">📋 Скопировать</button>
           </div>
-          <p class="user-bio-text" id="display-bio">
-            Участник FastAPI Messenger. Мгновенные сообщения, надежные веб-сокеты и шифрование.
-          </p>
+          <p class="user-bio-text" id="display-bio"></p>
         </div>
 
         <!-- Quick Stats -->
         <div class="stats-bar">
-          <div class="stat-box">
+          <div class="stat-box" id="stat-box-chats">
             <span class="stat-label">Диалогов</span>
-            <span class="stat-value" id="stat-chats-count">Active</span>
+            <span class="stat-value" id="stat-chats-count">—</span>
           </div>
-          <div class="stat-box">
+          <div class="stat-box" id="stat-box-msgs">
             <span class="stat-label">Сообщений</span>
-            <span class="stat-value" id="stat-msgs-count">100%</span>
+            <span class="stat-value" id="stat-msgs-count">—</span>
           </div>
-          <div class="stat-box">
+          <div class="stat-box" id="stat-box-e2e">
             <span class="stat-label">Шифрование</span>
             <span class="stat-value" style="color: var(--success);">🔒 Включено</span>
           </div>
-          <div class="stat-box">
+          <div class="stat-box" id="stat-box-reg">
             <span class="stat-label">Регистрация</span>
-            <span class="stat-value" id="stat-reg-date">Окт 2026</span>
+            <span class="stat-value" id="stat-reg-date">—</span>
           </div>
         </div>
       </div>
@@ -144,17 +143,17 @@
             <div class="form-grid">
               <div class="form-group">
                 <label for="input-username">Имя пользователя (Логин)</label>
-                <input type="text" id="input-username" class="input-field" value="alex" required minlength="3">
+                <input type="text" id="input-username" class="input-field" placeholder="username" required minlength="3">
               </div>
 
               <div class="form-group">
                 <label for="input-fullname">Отображаемое имя</label>
-                <input type="text" id="input-fullname" class="input-field" value="Алексей">
+                <input type="text" id="input-fullname" class="input-field" placeholder="Ваше имя или никнейм">
               </div>
 
               <div class="form-group">
                 <label for="input-email">Электронная почта</label>
-                <input type="email" id="input-email" class="input-field" value="alex@example.com" required>
+                <input type="email" id="input-email" class="input-field" placeholder="email@example.com" required>
               </div>
 
               <div class="form-group">
@@ -164,7 +163,7 @@
 
               <div class="form-group full-width">
                 <label for="input-bio">О себе (Био)</label>
-                <textarea id="input-bio" class="textarea-field" rows="3" placeholder="Пара слов о себе или ваш текущий статус...">Участник FastAPI Messenger. Мгновенные сообщения, надежные веб-сокеты и шифрование.</textarea>
+                <textarea id="input-bio" class="textarea-field" rows="3" placeholder="Пара слов о себе или ваш текущий статус..."></textarea>
               </div>
             </div>
 
@@ -423,8 +422,76 @@
       }
 
       try {
-        const user = await api.getMe();
-        state.currentUser = user;
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const targetUserId = pathParts[1] ? parseInt(pathParts[1], 10) : null;
+
+        const currentUser = await api.getMe();
+        state.currentUser = currentUser;
+        const isMe = !targetUserId || targetUserId === currentUser.id;
+        const user = isMe ? currentUser : await api.getUser(targetUserId);
+
+        if (!isMe) {
+          // Заголовок страницы и навигации
+          document.title = `${user.full_name || user.username} | FastAPI Messenger`;
+          const navTitle = document.getElementById('page-nav-title');
+          if (navTitle) navTitle.textContent = 'Профиль пользователя';
+
+          // Кнопка быстрого сохранения в шапке
+          const btnQuickSave = document.getElementById('btn-quick-save');
+          if (btnQuickSave) btnQuickSave.style.display = 'none';
+
+          // Кнопки смены аватара
+          const btnChangeAvatar = document.getElementById('btn-change-avatar');
+          if (btnChangeAvatar) btnChangeAvatar.style.display = 'none';
+
+          const btnRandomAvatar = document.getElementById('btn-random-avatar');
+          if (btnRandomAvatar) btnRandomAvatar.style.display = 'none';
+
+          // Кнопка перехода к диалогу
+          const btnStartChat = document.getElementById('btn-start-chat');
+          if (btnStartChat) {
+            btnStartChat.style.display = 'inline-flex';
+            btnStartChat.addEventListener('click', async () => {
+              try {
+                const chat = await api.createDirectChat(user.id);
+                window.location.href = `/?chat=${chat.id}`;
+              } catch (err) {
+                showToast(err.message || 'Ошибка создания чата', 'danger');
+              }
+            });
+          }
+
+          // Скрываем вкладки настроек и растягиваем контент
+          const sidebar = document.querySelector('.profile-tabs-sidebar');
+          if (sidebar) sidebar.style.display = 'none';
+
+          const grid = document.querySelector('.profile-body-grid');
+          if (grid) grid.style.gridTemplateColumns = '1fr';
+
+          // Описание карточки
+          const cardDesc = document.querySelector('#tab-general .card-desc');
+          if (cardDesc) cardDesc.textContent = 'Публичная информация профиля';
+
+          // Отключаем редактирование полей
+          document.getElementById('form-general').querySelectorAll('input, textarea').forEach(el => el.disabled = true);
+
+          // Скрываем email и телефон
+          const emailGroup = document.getElementById('input-email')?.closest('.form-group');
+          if (emailGroup) emailGroup.style.display = 'none';
+
+          const phoneGroup = document.getElementById('input-phone')?.closest('.form-group');
+          if (phoneGroup) phoneGroup.style.display = 'none';
+
+          // Скрываем кнопки формы
+          const cardFooter = document.querySelector('#form-general .card-footer');
+          if (cardFooter) cardFooter.style.display = 'none';
+
+          // Скрываем приватную статистику (диалоги и сообщения)
+          const statBoxChats = document.getElementById('stat-box-chats');
+          if (statBoxChats) statBoxChats.style.display = 'none';
+          const statBoxMsgs = document.getElementById('stat-box-msgs');
+          if (statBoxMsgs) statBoxMsgs.style.display = 'none';
+        }
 
         document.getElementById('input-username').value = user.username || '';
         document.getElementById('input-fullname').value = user.full_name || '';
@@ -445,22 +512,24 @@
           const date = new Date(user.created_at);
           document.getElementById('stat-reg-date').textContent = date.toLocaleDateString('ru-RU', { month: 'short', year: 'numeric' });
         }
+
+        if (isMe) {
+          try {
+            const stats = await api.getUserStats();
+            const statChats = document.getElementById('stat-chats-count');
+            const statMsgs = document.getElementById('stat-msgs-count');
+            if (statChats) statChats.textContent = stats.chats_count;
+            if (statMsgs) statMsgs.textContent = stats.messages_count;
+          } catch (err) {
+            console.error('Ошибка загрузки статистики:', err);
+          }
+        }
       } catch (err) {
         console.error('Ошибка загрузки профиля:', err);
         showToast(err.message || 'Ошибка загрузки профиля', 'danger');
         if (err.message && err.message.includes('Сессия истекла')) {
           setTimeout(() => { window.location.href = '/'; }, 1500);
         }
-      }
-
-      try {
-        const stats = await api.getUserStats();
-        const statChats = document.getElementById('stat-chats-count');
-        const statMsgs = document.getElementById('stat-msgs-count');
-        if (statChats) statChats.textContent = stats.chats_count;
-        if (statMsgs) statMsgs.textContent = stats.messages_count;
-      } catch (err) {
-        console.error('Ошибка загрузки статистики:', err);
       }
     }
 

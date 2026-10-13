@@ -13,11 +13,6 @@ class UserCreate(UserBase):
     password: str
 
 
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-
 class UserUpdate(BaseModel):
     username: str | None = None
     email: EmailStr | None = None
@@ -30,16 +25,20 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
-
-class UserStatsResponse(BaseModel):
-    chats_count: int
-    messages_count: int
-
-
-class UserResponse(UserBase):
+# 1. Публичные данные (видят ВСЕ пользователи, никакого email)
+class UserPublicResponse(BaseModel):
     id: int
+    username: str
+    full_name: str | None = None
+    bio: str | None = None
     avatar_url: str | None = None
-    is_active: bool
     created_at: datetime.datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+# 5. Приватные данные (видит ТОЛЬКО сам владелец аккаунта в /me)
+class UserResponse(UserPublicResponse):
+    email: EmailStr
+    is_active: bool
 
     model_config = ConfigDict(from_attributes=True)

@@ -10,8 +10,9 @@ from app.models.user import User
 from app.schemas.user import (
     ChangePasswordRequest,
     UserResponse,
-    UserStatsResponse,
+
     UserUpdate,
+    UserPublicResponse
 )
 from app.utils.security import get_password_hash, verify_password
 
@@ -104,25 +105,8 @@ async def change_password(
     return {"message": "Пароль успешно изменен"}
 
 
-@router.get("/me/stats", response_model=UserStatsResponse)
-async def get_user_stats(
-    current_user: Annotated[User, Depends(get_current_active_user)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    chats_res = await db.execute(
-        select(func.count(ChatParticipant.id)).where(ChatParticipant.user_id == current_user.id)
-    )
-    chats_count = chats_res.scalar() or 0
 
-    msgs_res = await db.execute(
-        select(func.count(Message.id)).where(Message.sender_id == current_user.id)
-    )
-    msgs_count = msgs_res.scalar() or 0
-
-    return UserStatsResponse(chats_count=chats_count, messages_count=msgs_count)
-
-
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=UserPublicResponse)
 async def get_user_by_id(
     user_id: int,
     _: Annotated[User, Depends(get_current_active_user)],

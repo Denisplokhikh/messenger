@@ -48,7 +48,6 @@ export const api = {
 
     return res.json();
   },
-
   async register(username, email, password) {
     const res = await fetch("/api/v1/auth/register", {
       method: "POST",
@@ -65,7 +64,7 @@ export const api = {
   },
 
   async getMe() {
-    const res = await request("/api/v1/auth/me");
+    const res = await request("/api/v1/users/me");
     if (!res.ok) throw new Error("Не удалось загрузить профиль");
     return res.json();
   },
@@ -113,8 +112,8 @@ export const api = {
   },
 
   // История сообщений чата
-  async getMessages(chatId, limit = 100) {
-    const res = await request(`/api/v1/chats/${chatId}/messages?limit=${limit}`);
+  async getMessages(chatId, limit = 30, offset = 0) {
+    const res = await request(`/api/v1/chats/${chatId}/messages?limit=${limit}&offset=${offset}`);
     if (!res.ok) throw new Error("Не удалось загрузить историю сообщений");
     return res.json();
   },
@@ -163,12 +162,12 @@ export const api = {
     }
     return res.json();
   },
-
-  // Статистика аккаунта
-  async getUserStats() {
-    const res = await request("/api/v1/users/me/stats");
-    if (!res.ok) return { chats_count: 0, messages_count: 0 };
+  
+  async getUser(userId) {
+    const res = await request(`/api/v1/users/${userId}`);
+    if (!res.ok) throw new Error("Не удалось загрузить пользователя");
     return res.json();
   },
+
 };
 

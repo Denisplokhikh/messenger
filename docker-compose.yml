@@ -11,6 +11,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
   backend:
     build: .
     container_name: messenger_backend
@@ -29,6 +30,18 @@ services:
     depends_on:
       - db
 
+  nginx:
+    image: nginx:alpine
+    container_name: messenger_nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/app/static:ro
+    depends_on:
+      - backend
+
   adminer:
     image: adminer:latest
     container_name: messenger_adminer
@@ -39,7 +52,6 @@ services:
       ADMINER_DEFAULT_SERVER: db
     depends_on:
       - db
-
 
 volumes:
   postgres_data:

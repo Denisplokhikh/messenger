@@ -133,7 +133,7 @@ export function renderActiveChatHeader(chat) {
 }
 
 // 3. Отрисовка ленты сообщений (ВСЕ сообщения слева!)
-export function renderMessages(chatId) {
+export function renderMessages(chatId, shouldScrollToBottom = true) {
   const container = document.getElementById("messages-container");
   if (!container) return;
 
@@ -212,10 +212,11 @@ export function renderMessages(chatId) {
       `);
     }
   }
-
   container.innerHTML = htmlParts.join("");
-  scrollToBottom(false);
-}
+  if (shouldScrollToBottom) {
+    scrollToBottom(false);
+  }
+  }
 
 // 4. Прокрутка ленты вниз
 export function scrollToBottom(smooth = true) {

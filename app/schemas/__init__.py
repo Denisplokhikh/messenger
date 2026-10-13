@@ -6,11 +6,11 @@ from app.schemas.chat import (
 )
 from app.schemas.message import MessageCreate, MessageResponse
 from app.schemas.token import Token, TokenPayload
-from app.schemas.user import UserCreate, UserLogin, UserResponse
+from app.schemas.user import UserCreate, UserPublicResponse, UserResponse
 
 __all__ = [
     "UserCreate",
-    "UserLogin",
+    "UserPublicResponse",
     "UserResponse",
     "Token",
     "TokenPayload",

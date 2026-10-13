@@ -16,14 +16,6 @@ import {
 } from "./js/ui.js";
 
 // DOM Elements
-const authModal = document.getElementById("auth-modal");
-const tabLogin = document.getElementById("tab-login");
-const tabRegister = document.getElementById("tab-register");
-const loginForm = document.getElementById("login-form");
-const registerForm = document.getElementById("register-form");
-const loginError = document.getElementById("login-error");
-const registerError = document.getElementById("register-error");
-
 const messengerApp = document.getElementById("messenger-app");
 const myAvatar = document.getElementById("my-avatar");
 const btnLogout = document.getElementById("btn-logout");
@@ -31,6 +23,11 @@ const chatSearchInput = document.getElementById("chat-search-input");
 
 const messageForm = document.getElementById("message-form");
 const messageInput = document.getElementById("message-input");
+const messagesContainer = document.getElementById("messages-container");
+
+// Состояние пагинации истории сообщений
+let isLoadingOlderMessages = false;
+let hasMoreMessages = true;
 
 // Modal New Chat
 const btnOpenNewChat = document.getElementById("btn-open-new-chat");
@@ -51,7 +48,7 @@ const groupError = document.getElementById("group-error");
 // ========================================================
 async function init() {
   if (!state.token) {
-    showAuthModal();
+    window.location.replace("/login");
     return;
   }
 
@@ -66,17 +63,26 @@ async function init() {
     }
 
     // 2. Отображаем мессенджер
-    authModal.classList.add("hidden");
-    messengerApp.classList.remove("hidden");
+    if (messengerApp) {
+      messengerApp.classList.remove("hidden");
+    }
 
     // 3. Загрузка диалогов
     await loadChats();
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const chatParam = urlParams.get("chat");
+    if (chatParam) {
+      await selectChat(chatParam);
+    }
 
     // 4. Подключение к WebSocket
     connectWebSocket(handleIncomingSocketMessage, handleSocketStatusChange);
   } catch (err) {
     console.error("Ошибка инициализации:", err);
-    logout();
+    if (err.message && (err.message.includes("Сессия истекла") || err.message.includes("401"))) {
+      logout();
+    }
   }
 }
 
@@ -110,17 +116,31 @@ async function selectChat(chatId) {
     renderActiveChatHeader(chat);
   }
 
-  // Загрузка сообщений (если ещё нет в кэше)
-  try {
-    const messages = await api.getMessages(chatId);
-    state.messagesByChat[chatId] = messages;
-    renderMessages(chatId);
-  } catch (err) {
-    console.error("Ошибка загрузки сообщений:", err);
+  // Сбрасываем пагинацию при выборе нового чата
+  hasMoreMessages = true;
+  isLoadingOlderMessages = false;
+
+  // Мгновенно отрисовываем сообщения из кэша (если уже открывали этот чат ранее)
+  const cached = state.messagesByChat[chatId];
+  if (cached && cached.length > 0) {
+    renderMessages(chatId, true);
+  } else {
+    renderMessages(chatId, true);
   }
 
   if (messageInput) {
     messageInput.focus();
+  }
+
+  // Фоновая загрузка свежих последних 30 сообщений с сервера
+  try {
+    const messages = await api.getMessages(chatId, 30, 0);
+    state.messagesByChat[chatId] = messages;
+    if (String(state.activeChatId) === String(chatId)) {
+      renderMessages(chatId, true);
+    }
+  } catch (err) {
+    console.error("Ошибка загрузки сообщений:", err);
   }
 }
 
@@ -193,10 +213,59 @@ if (messageForm) {
       }
 
       renderChatList(selectChat);
-      renderMessages(chatId);
+      renderMessages(chatId, true);
       scrollToBottom(true);
     } catch (err) {
       alert(err.message);
+    }
+  });
+}
+
+// Подгрузка старых сообщений при прокрутке ленты вверх (Reverse Infinite Scroll)
+if (messagesContainer) {
+  messagesContainer.addEventListener("scroll", async () => {
+    // Если пользователь долистал до самого верха (scrollTop < 40px)
+    if (messagesContainer.scrollTop < 40 && !isLoadingOlderMessages && hasMoreMessages && state.activeChatId) {
+      const activeId = String(state.activeChatId);
+      const currentList = state.messagesByChat[activeId] || [];
+      const offset = currentList.length;
+
+      // Если в чате ещё нет сообщений, подгружать нечего
+      if (offset === 0) return;
+
+      isLoadingOlderMessages = true;
+      const prevScrollHeight = messagesContainer.scrollHeight;
+
+      try {
+        const olderMessages = await api.getMessages(activeId, 30, offset);
+
+        // Если пришло меньше лимита — мы долистали до начала истории
+        if (olderMessages.length < 30) {
+          hasMoreMessages = false;
+        }
+
+        if (olderMessages.length > 0 && String(state.activeChatId) === activeId) {
+          // Исключаем дубликаты
+          const existingIds = new Set(currentList.map((m) => String(m.id)));
+          const uniqueOlder = olderMessages.filter((m) => !existingIds.has(String(m.id)));
+
+          if (uniqueOlder.length > 0) {
+            // Добавляем старые сообщения В НАЧАЛО массива
+            state.messagesByChat[activeId] = [...uniqueOlder, ...currentList];
+
+            // Отрисовываем БЕЗ скролла вниз
+            renderMessages(activeId, false);
+
+            // Компенсируем сдвиг высоты, чтобы взгляд пользователя остался ровно на том же сообщении
+            const heightDiff = messagesContainer.scrollHeight - prevScrollHeight;
+            messagesContainer.scrollTop = heightDiff;
+          }
+        }
+      } catch (err) {
+        console.error("Ошибка при подгрузке старых сообщений:", err);
+      } finally {
+        isLoadingOlderMessages = false;
+      }
     }
   });
 }
@@ -214,15 +283,6 @@ if (chatSearchInput) {
 // ========================================================
 // 5. Авторизация и Выход
 // ========================================================
-function showAuthModal() {
-  authModal.classList.remove("hidden");
-  messengerApp.classList.add("hidden");
-  loginForm.reset();
-  registerForm.reset();
-  loginError.classList.add("hidden");
-  registerError.classList.add("hidden");
-}
-
 function logout() {
   localStorage.removeItem("access_token");
   state.token = null;
@@ -231,67 +291,11 @@ function logout() {
   state.activeChatId = null;
   state.messagesByChat = {};
   disconnectWebSocket();
-  showAuthModal();
+  window.location.replace("/login");
 }
 
 window.addEventListener("auth:logout", logout);
 if (btnLogout) btnLogout.addEventListener("click", logout);
-
-// Переключение табов Вход / Регистрация
-tabLogin.addEventListener("click", () => {
-  tabLogin.className = "flex-1 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white transition-all";
-  tabRegister.className = "flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition-all";
-  loginForm.classList.remove("hidden");
-  registerForm.classList.add("hidden");
-});
-
-tabRegister.addEventListener("click", () => {
-  tabRegister.className = "flex-1 py-2 text-xs font-semibold rounded-lg bg-blue-600 text-white transition-all";
-  tabLogin.className = "flex-1 py-2 text-xs font-semibold rounded-lg text-slate-400 hover:text-slate-200 transition-all";
-  registerForm.classList.remove("hidden");
-  loginForm.classList.add("hidden");
-});
-
-// Отправка формы входа
-loginForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  loginError.classList.add("hidden");
-
-  const username = document.getElementById("login-username").value.trim();
-  const password = document.getElementById("login-password").value;
-
-  try {
-    const data = await api.login(username, password);
-    state.token = data.access_token;
-    localStorage.setItem("access_token", state.token);
-    init();
-  } catch (err) {
-    loginError.textContent = err.message;
-    loginError.classList.remove("hidden");
-  }
-});
-
-// Отправка формы регистрации
-registerForm.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  registerError.classList.add("hidden");
-
-  const username = document.getElementById("reg-username").value.trim();
-  const email = document.getElementById("reg-email").value.trim();
-  const password = document.getElementById("reg-password").value;
-
-  try {
-    await api.register(username, email, password);
-    // Авто-логин после успешной регистрации
-    const data = await api.login(username, password);
-    state.token = data.access_token;
-    localStorage.setItem("access_token", state.token);
-    init();
-  } catch (err) {
-    registerError.textContent = err.message;
-    registerError.classList.remove("hidden");
-  }
-});
 
 // ========================================================
 // 6. Модальное окно создания нового чата

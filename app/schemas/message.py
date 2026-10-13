@@ -18,5 +18,5 @@ class MessageResponse(MessageBase):
     is_read: bool
     created_at: datetime.datetime
     sender: UserResponse | None = None
-
+    
     model_config = ConfigDict(from_attributes=True)

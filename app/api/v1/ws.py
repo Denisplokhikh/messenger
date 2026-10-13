@@ -45,7 +45,7 @@ async def websocket_endpoint(
     # Ожидаем пакет авторизации первым сообщением с таймаутом
     user = None
     try:
-        raw_auth = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        raw_auth = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
         auth_data = json.loads(raw_auth)
 
         token = None

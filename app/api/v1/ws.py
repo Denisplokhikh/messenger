@@ -1,19 +1,29 @@
 import asyncio
 from datetime import datetime, timezone
 import json
+import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
-import logging
+
 from app.database import AsyncSessionLocal
-from app.models.chat import Chat
 from app.models.chat_participant import ChatParticipant
 from app.models.message import Message
 from app.models.user import User
+from app.schemas.ws import (
+    WSAuthMessage,
+    WSBaseAction,
+    WSConnectionAck,
+    WSErrorResponse,
+    WSMessagePayload,
+    WSNewMessageEvent,
+    WSPingAction,
+    WSPongResponse,
+    WSSendMessageAction,
+)
 from app.services.connection_manager import manager
 from app.utils.security import decode_access_token
-
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["WebSocket"])
@@ -47,22 +57,14 @@ async def websocket_endpoint(
     # Ожидаем пакет авторизации первым сообщением с таймаутом
     user = None
     try:
-        raw_auth = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
-        auth_data = json.loads(raw_auth)
-
-        token = None
-        if isinstance(auth_data, dict):
-            # Поддержка стандартов GraphQL-ws (connection_init) и прямого события authenticate/auth
-            msg_type = auth_data.get("type") or auth_data.get("action")
-            if msg_type in ("authenticate", "auth", "connection_init"):
-                payload = auth_data.get("payload")
-                if isinstance(payload, dict) and "token" in payload:
-                    token = payload.get("token")
-                else:
-                    token = auth_data.get("token")
-
-        user = await authenticate_ws(token)
-    except (asyncio.TimeoutError, json.JSONDecodeError, WebSocketDisconnect):
+        raw_auth = await asyncio.wait_for(websocket.receive_text(), timeout=10.0) 
+        auth_msg = WSAuthMessage.model_validate_json(raw_auth)
+        
+        if not auth_msg.is_auth_message():
+            user = None
+        else:
+            user = await authenticate_ws(auth_msg.extract_token())
+    except (asyncio.TimeoutError, ValidationError, ValueError, WebSocketDisconnect):
         user = None
 
     if not user:
@@ -71,74 +73,72 @@ async def websocket_endpoint(
 
     manager.connect(user.id, websocket)
 
-    # Уведомляем клиента об успешном подключении и готовности к работе
-    await websocket.send_json({
-        "event": "connected",
-        "type": "connection_ack",
-        "user_id": user.id,
-        "username": user.username,
-    })
+    ack = WSConnectionAck(user_id=user.id, username=user.username)
+    await websocket.send_text(ack.model_dump_json())
 
     try:
         while True:
             raw_data = await websocket.receive_text()
             try:
-                data = json.loads(raw_data)
-            except json.JSONDecodeError:
-                await websocket.send_json({"error": "Invalid JSON format"})
+                base = WSBaseAction.model_validate_json(raw_data)
+            except (ValidationError, ValueError):
+                err = WSErrorResponse(error="Invalid JSON or missing action")
+                await websocket.send_text(err.model_dump_json())
                 continue
 
-            action = data.get("action")
+            if base.action == "ping":
+                await websocket.send_text(WSPongResponse().model_dump_json())
 
-            if action == "ping":
-                await websocket.send_json({"event": "pong"})
-
-            elif action == "send_message":
-                chat_id = data.get("chat_id")
-                content = data.get("content", "").strip()
-
-                if not chat_id or not content:
-                    await websocket.send_json({"error": "chat_id and non-empty content required"})
+            elif base.action == "send_message":
+                try:
+                    msg_action = WSSendMessageAction.model_validate_json(raw_data)
+                except ValidationError as e:
+                    first_err = e.errors()[0]
+                    err_msg = first_err.get("msg", "Validation error")
+                    err = WSErrorResponse(error=err_msg)
+                    await websocket.send_text(err.model_dump_json())
                     continue
 
                 async with AsyncSessionLocal() as session:
                     # Verify user is in chat
-                    stmt = select(ChatParticipant.user_id).where(ChatParticipant.chat_id == chat_id)
+                    stmt = select(ChatParticipant.user_id).where(ChatParticipant.chat_id == msg_action.chat_id)
                     res = await session.execute(stmt)
                     participant_ids = res.scalars().all()
 
                     if user.id not in participant_ids:
-                        await websocket.send_json({"error": "Chat not found or access denied"})
+                        err = WSErrorResponse(error="Chat not found or access denied")
+                        await websocket.send_text(err.model_dump_json())
                         continue
 
                     new_message = Message(
-                        chat_id=chat_id,
+                        chat_id=msg_action.chat_id,
                         sender_id=user.id,
-                        content=content,
+                        content=msg_action.content,
                     )
                     session.add(new_message)
                     await session.commit()
                     await session.refresh(new_message)
 
-                    msg_payload = {
-                        "event": "new_message",
-                        "message": {
-                            "id": new_message.id,
-                            "chat_id": chat_id,
-                            "sender_id": user.id,
-                            "sender_username": user.username,
-                            "content": content,
-                            "created_at": new_message.created_at.isoformat(),
-                        },
-                    }
-                    await manager.broadcast_to_users(msg_payload, participant_ids)
+                    msg_event = WSNewMessageEvent(
+                        message=WSMessagePayload(
+                            id=new_message.id,
+                            chat_id=msg_action.chat_id,
+                            sender_id=user.id,
+                            sender_username=user.username,
+                            content=msg_action.content,
+                            created_at=new_message.created_at.isoformat(),
+                        )
+                    )
+                    await manager.broadcast_to_users(msg_event.model_dump(), participant_ids)
 
             else:
-                await websocket.send_json({"error": f"Unknown action: {action}"})
+                err = WSErrorResponse(error=f"Unknown action: {base.action}")
+                await websocket.send_text(err.model_dump_json())
 
     except WebSocketDisconnect:
         manager.disconnect(user.id, websocket)
     except Exception as e:
         logger.exception(f"Unexpected error in WS for user {user.id}: {e}")
         manager.disconnect(user.id, websocket)
+
 

@@ -5,7 +5,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-
+import logging
 from app.database import AsyncSessionLocal
 from app.models.chat import Chat
 from app.models.chat_participant import ChatParticipant
@@ -14,6 +14,8 @@ from app.models.user import User
 from app.services.connection_manager import manager
 from app.utils.security import decode_access_token
 
+
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["WebSocket"])
 
 
@@ -101,16 +103,11 @@ async def websocket_endpoint(
 
                 async with AsyncSessionLocal() as session:
                     # Verify user is in chat
-                    stmt = (
-                        select(Chat)
-                        .join(ChatParticipant)
-                        .where(Chat.id == chat_id, ChatParticipant.user_id == user.id)
-                        .options(selectinload(Chat.participants))
-                    )
+                    stmt = select(ChatParticipant.user_id).where(ChatParticipant.chat_id == chat_id)
                     res = await session.execute(stmt)
-                    chat = res.scalar_one_or_none()
+                    participant_ids = res.scalars().all()
 
-                    if not chat:
+                    if user.id not in participant_ids:
                         await websocket.send_json({"error": "Chat not found or access denied"})
                         continue
 
@@ -134,9 +131,6 @@ async def websocket_endpoint(
                             "created_at": new_message.created_at.isoformat(),
                         },
                     }
-
-                    # Send to all participants
-                    participant_ids = [p.user_id for p in chat.participants]
                     await manager.broadcast_to_users(msg_payload, participant_ids)
 
             else:
@@ -144,5 +138,7 @@ async def websocket_endpoint(
 
     except WebSocketDisconnect:
         manager.disconnect(user.id, websocket)
-    except Exception:
+    except Exception as e:
+        logger.exception(f"Unexpected error in WS for user {user.id}: {e}")
         manager.disconnect(user.id, websocket)
+

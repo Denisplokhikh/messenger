@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,13 +8,17 @@ from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
 from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserResponse
+from app.utils.limiter import limiter
 from app.utils.security import create_access_token, get_password_hash, verify_password
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def register(user_in: UserCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+@router.post(
+    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
+)
+@limiter.limit("3/minute")
+async def register(user_in: UserCreate, db: Annotated[AsyncSession, Depends(get_db)], request: Request):
     # Check if user already exists
     existing = await db.execute(
         select(User).where(or_(User.email == user_in.email, User.username == user_in.username))
@@ -37,9 +41,11 @@ async def register(user_in: UserCreate, db: Annotated[AsyncSession, Depends(get_
 
 
 @router.post("/login", response_model=Token)
+@limiter.limit("5/minute")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     # form_data.username can be either username or email
     result = await db.execute(

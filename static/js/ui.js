@@ -239,7 +239,7 @@ export function renderMessages(chatId, shouldScrollToBottom = true) {
 export function scrollToBottom(smooth = true) {
   const container = document.getElementById("messages-container");
   if (!container) return;
-  container.scrollTo({
+    container.scrollTo({
     top: container.scrollHeight,
     behavior: smooth ? "smooth" : "auto",
   });

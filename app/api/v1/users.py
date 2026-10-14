@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,20 +10,22 @@ from app.models.user import User
 from app.schemas.user import (
     ChangePasswordRequest,
     UserResponse,
-
     UserUpdate,
-    UserPublicResponse
+    UserPublicResponse,
 )
 from app.utils.security import get_password_hash, verify_password
+from app.utils.limiter import limiter
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.get("/search", response_model=list[UserResponse])
+@router.get("/search", response_model=list[UserPublicResponse])
+@limiter.limit("30/minute")
 async def search_users(
     query: Annotated[str, Query(min_length=1, max_length=50)],
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     stmt = (
         select(User)
@@ -43,15 +45,19 @@ async def get_current_user_profile(
 
 
 @router.patch("/me", response_model=UserResponse)
+@limiter.limit("5/minute")
 async def update_current_user_profile(
     user_update: UserUpdate,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     # Check username uniqueness if changed
     if user_update.username and user_update.username != current_user.username:
         existing = await db.execute(
-            select(User).where(User.username == user_update.username, User.id != current_user.id)
+            select(User).where(
+                User.username == user_update.username, User.id != current_user.id
+            )
         )
         if existing.scalar_one_or_none():
             raise HTTPException(
@@ -63,7 +69,9 @@ async def update_current_user_profile(
     # Check email uniqueness if changed
     if user_update.email and user_update.email != current_user.email:
         existing = await db.execute(
-            select(User).where(User.email == user_update.email, User.id != current_user.id)
+            select(User).where(
+                User.email == user_update.email, User.id != current_user.id
+            )
         )
         if existing.scalar_one_or_none():
             raise HTTPException(
@@ -85,10 +93,12 @@ async def update_current_user_profile(
 
 
 @router.post("/me/change-password")
+@limiter.limit("5/minute")
 async def change_password(
     req: ChangePasswordRequest,
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     if not verify_password(req.current_password, current_user.hashed_password):
         raise HTTPException(
@@ -105,15 +115,17 @@ async def change_password(
     return {"message": "Пароль успешно изменен"}
 
 
-
 @router.get("/{user_id}", response_model=UserPublicResponse)
 async def get_user_by_id(
     user_id: int,
     _: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
 ):
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return user

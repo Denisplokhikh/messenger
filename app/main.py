@@ -20,6 +20,10 @@ from app.config import settings
 from app.database import engine
 from app.models.user import User
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from app.utils.limiter import limiter
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -49,6 +53,8 @@ app = FastAPI(
     description="Real-time Messenger Backend with FastAPI, PostgreSQL and WebSockets",
     lifespan=lifespan,
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # CORS Middleware (allows frontend web/mobile clients to connect)
 app.add_middleware(

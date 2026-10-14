@@ -183,8 +183,37 @@ function handleSocketStatusChange(isConnected) {
 }
 
 // ========================================================
-// 3. Отправка сообщений
+// 3. Отправка сообщений (с умным разбиением > 1000 символов)
 // ========================================================
+function splitTextIntoChunks(text, maxLength = 1000) {
+  const chunks = [];
+  let remaining = text.trim();
+
+  while (remaining.length > maxLength) {
+    // 1. Ищем перенос строки ближе к лимиту
+    let splitIndex = remaining.lastIndexOf("\n", maxLength);
+
+    // 2. Если нет переноса, ищем последний пробел
+    if (splitIndex === -1 || splitIndex < maxLength * 0.7) {
+      splitIndex = remaining.lastIndexOf(" ", maxLength);
+    }
+
+    // 3. Если пробелов нет (длинная строка), режем жестко по maxLength
+    if (splitIndex === -1 || splitIndex < maxLength * 0.5) {
+      splitIndex = maxLength;
+    }
+
+    chunks.push(remaining.slice(0, splitIndex).trim());
+    remaining = remaining.slice(splitIndex).trim();
+  }
+
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+
+  return chunks;
+}
+
 if (messageForm) {
   messageForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -195,26 +224,31 @@ if (messageForm) {
 
     messageInput.value = "";
 
+    // Разбиваем текст, если он длиннее 1000 символов
+    const chunks = splitTextIntoChunks(content, 1000);
+    const chatId = String(state.activeChatId);
+
     try {
-      // Отправляем сообщение на сервер
-      const newMsg = await api.sendMessage(state.activeChatId, content);
+      // Отправляем кусочки последовательно, сохраняя порядок
+      for (const chunk of chunks) {
+        const newMsg = await api.sendMessage(state.activeChatId, chunk);
 
-      // Добавляем в локальный кэш
-      const chatId = String(state.activeChatId);
-      if (!state.messagesByChat[chatId]) {
-        state.messagesByChat[chatId] = [];
+        // Добавляем в локальный кэш
+        if (!state.messagesByChat[chatId]) {
+          state.messagesByChat[chatId] = [];
+        }
+        state.messagesByChat[chatId].push(newMsg);
+
+        // Обновляем последнее сообщение в сайдбаре
+        const chatIndex = state.chats.findIndex((c) => String(c.id) === chatId);
+        if (chatIndex !== -1) {
+          state.chats[chatIndex].last_message = newMsg;
+        }
+
+        renderChatList(selectChat);
+        renderMessages(chatId, true);
+        scrollToBottom(true);
       }
-      state.messagesByChat[chatId].push(newMsg);
-
-      // Обновляем последнее сообщение в сайдбаре
-      const chatIndex = state.chats.findIndex((c) => String(c.id) === chatId);
-      if (chatIndex !== -1) {
-        state.chats[chatIndex].last_message = newMsg;
-      }
-
-      renderChatList(selectChat);
-      renderMessages(chatId, true);
-      scrollToBottom(true);
     } catch (err) {
       alert(err.message);
     }

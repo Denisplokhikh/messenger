@@ -82,14 +82,6 @@
 
         <!-- Quick Stats -->
         <div class="stats-bar">
-          <div class="stat-box" id="stat-box-chats">
-            <span class="stat-label">Диалогов</span>
-            <span class="stat-value" id="stat-chats-count">—</span>
-          </div>
-          <div class="stat-box" id="stat-box-msgs">
-            <span class="stat-label">Сообщений</span>
-            <span class="stat-value" id="stat-msgs-count">—</span>
-          </div>
           <div class="stat-box" id="stat-box-reg">
             <span class="stat-label">Регистрация</span>
             <span class="stat-value" id="stat-reg-date">—</span>
@@ -511,11 +503,6 @@
 
         if (isMe) {
           try {
-            const stats = await api.getUserStats();
-            const statChats = document.getElementById('stat-chats-count');
-            const statMsgs = document.getElementById('stat-msgs-count');
-            if (statChats) statChats.textContent = stats.chats_count;
-            if (statMsgs) statMsgs.textContent = stats.messages_count;
           } catch (err) {
             console.error('Ошибка загрузки статистики:', err);
           }

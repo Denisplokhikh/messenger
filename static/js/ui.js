@@ -33,8 +33,8 @@ export function getChatDisplayInfo(chat, currentUserId) {
   return {
     title: username,
     avatar: getAvatarUrl(username),
-    subtitle: "Личный диалог",
     isGroup: false,
+    otherUserId: otherParticipant?.user_id,
   };
 }
 
@@ -72,23 +72,23 @@ export function renderChatList(onSelectChat) {
       return `
         <div 
           data-chat-id="${chat.id}"
-          class="chat-list-item flex items-center gap-3.5 px-4 py-3.5 rounded-xl cursor-pointer transition-all border ${
+          class="chat-list-item flex items-center gap-3.5 px-3.5 py-3 rounded-lg cursor-pointer transition-all border ${
             isActive
-              ? "bg-slate-800/90 border-blue-500/50 shadow-md"
-              : "border-transparent hover:bg-slate-800/40 hover:border-slate-700/50"
+              ? "bg-[#37373d] border-[#007acc]/70 text-white shadow-sm"
+              : "border-transparent hover:bg-[#2a2d2e] text-[#cccccc]"
           }"
         >
           <div class="relative flex-shrink-0">
-            <img src="${info.avatar}" alt="${escapeHtml(info.title)}" class="w-11 h-11 rounded-full bg-slate-700 object-cover border border-slate-700/60" />
-            <span class="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+            <img src="${info.avatar}" alt="${escapeHtml(info.title)}" class="w-10 h-10 rounded-full bg-[#2d2d2d] object-cover border border-[#3c3c3c]" />
+            <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#252526] rounded-full"></span>
           </div>
 
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-1 mb-1">
-              <span class="font-semibold text-sm text-slate-100 truncate">${escapeHtml(info.title)}</span>
-              <span class="text-[11px] text-slate-400 whitespace-nowrap flex-shrink-0">${lastMsgTime}</span>
+              <span class="font-semibold text-sm text-[#e6e6e6] truncate">${escapeHtml(info.title)}</span>
+              <span class="text-[11px] text-[#858585] whitespace-nowrap flex-shrink-0">${lastMsgTime}</span>
             </div>
-            <p class="text-xs text-slate-400 truncate">${lastMsgText}</p>
+            <p class="text-xs text-[#858585] truncate">${lastMsgText}</p>
           </div>
         </div>
       `;
@@ -112,20 +112,32 @@ export function renderActiveChatHeader(chat) {
   const currentUserId = state.currentUser ? state.currentUser.id : null;
   const info = getChatDisplayInfo(chat, currentUserId);
 
+  const avatarHtml = info.isGroup || !info.otherUserId
+    ? `<img src="${info.avatar}" alt="${escapeHtml(info.title)}" class="w-10 h-10 rounded-full bg-[#2d2d2d] object-cover border border-[#3c3c3c]" />`
+    : `<a href="/profile/${info.otherUserId}" class="block flex-shrink-0 transition-transform hover:scale-105" title="Открыть профиль ${escapeHtml(info.title)}">
+         <img src="${info.avatar}" alt="${escapeHtml(info.title)}" class="w-10 h-10 rounded-full bg-[#2d2d2d] object-cover border border-[#3c3c3c] cursor-pointer" />
+       </a>`;
+
+  const titleHtml = info.isGroup || !info.otherUserId
+    ? `<h2 class="font-bold text-base text-[#e6e6e6] leading-tight">${escapeHtml(info.title)}</h2>`
+    : `<a href="/profile/${info.otherUserId}" class="font-bold text-base text-[#e6e6e6] leading-tight hover:text-[#007acc] transition-colors" title="Открыть профиль ${escapeHtml(info.title)}">
+         ${escapeHtml(info.title)}
+       </a>`;
+
   headerContainer.innerHTML = `
     <div class="flex items-center gap-3.5">
       <div class="relative flex-shrink-0">
-        <img src="${info.avatar}" alt="${escapeHtml(info.title)}" class="w-10 h-10 rounded-full bg-slate-700 object-cover border border-slate-700/60" />
-        <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-slate-900 rounded-full"></span>
+        ${avatarHtml}
+        <span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#252526] rounded-full pointer-events-none"></span>
       </div>
       <div>
-        <h2 class="font-bold text-base text-slate-100 leading-tight">${escapeHtml(info.title)}</h2>
-        <span class="text-xs text-slate-400">${escapeHtml(info.subtitle)}</span>
+        ${titleHtml}
+        <span class="text-xs text-[#858585]">${escapeHtml(info.subtitle)}</span>
       </div>
     </div>
 
     <div class="flex items-center gap-2">
-      <span class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+      <span class="text-xs px-2.5 py-1 rounded-full bg-[#1e1e1e] text-[#858585] border border-[#3c3c3c]">
         ID: ${chat.id}
       </span>
     </div>
@@ -143,11 +155,11 @@ export function renderMessages(chatId, shouldScrollToBottom = true) {
   if (messages.length === 0) {
     container.innerHTML = `
       <div class="flex flex-col items-center justify-center h-full text-center p-8">
-        <div class="w-14 h-14 rounded-full bg-slate-800/80 flex items-center justify-center text-2xl mb-3 border border-slate-700/50">
+        <div class="w-14 h-14 rounded-xl bg-[#252526] flex items-center justify-center text-2xl mb-3 border border-[#333333]">
           💬
         </div>
-        <h3 class="font-semibold text-slate-200 text-base mb-1">Здесь пока нет сообщений</h3>
-        <p class="text-xs text-slate-400 max-w-xs">Отправьте первое сообщение, чтобы начать общение прямо сейчас.</p>
+        <h3 class="font-semibold text-[#e6e6e6] text-base mb-1">Здесь пока нет сообщений</h3>
+        <p class="text-xs text-[#858585] max-w-xs">Отправьте первое сообщение, чтобы начать общение прямо сейчас.</p>
       </div>
     `;
     return;
@@ -165,7 +177,7 @@ export function renderMessages(chatId, shouldScrollToBottom = true) {
       lastDateStr = dateStr;
       htmlParts.push(`
         <div class="flex items-center justify-center my-4">
-          <span class="text-[11px] font-medium text-slate-400 bg-slate-800/80 px-3 py-1 rounded-full border border-slate-700/50 backdrop-blur-sm">
+          <span class="text-[13px] font-medium text-[#858585] bg-[#252526] px-3 py-1 rounded-full border border-[#333333] shadow-sm">
             ${escapeHtml(dateStr)}
           </span>
         </div>
@@ -180,33 +192,38 @@ export function renderMessages(chatId, shouldScrollToBottom = true) {
     const textEscaped = escapeHtml(msg.content);
 
     // ОБА типа сообщений выровнены СЛЕВА:
-    // Собеседник = Серый (Slate-800)
-    // Свои сообщения = Синий (Blue-600)
+    // Свои сообщения = Тёмный графит с синим акцентом (#2d3139)
+    // Собеседник = Классический тёмно-серый (#252526)
     if (isMe) {
       htmlParts.push(`
-        <div class="flex items-start gap-2.5 mb-3 group" data-message-id="${msg.id}">
-          <img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="w-8 h-8 rounded-full flex-shrink-0 bg-slate-700 object-cover mt-0.5 border border-blue-400/30" />
+        <div class="flex items-start gap-2.5 mb-2.5 group" data-message-id="${msg.id}">
+          <a href="/profile" class="flex-shrink-0 transition-transform hover:scale-105" title="Мой профиль">
+            <img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="w-8 h-8 rounded-full bg-[#2d2d2d] object-cover mt-0.5 border border-[#007acc]/40 cursor-pointer" />
+          </a>
           
-          <div class="max-w-[85%] md:max-w-[70%] bg-blue-600 text-white rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-md transition-all">
-            <div class="text-[11px] font-semibold text-blue-200 mb-0.5 flex items-center gap-1.5">
-              <span>Вы</span>
+          <div class="max-w-[85%] md:max-w-[70%] bg-[#2d3139] text-[#e6e6e6] border border-[#3e4451] rounded-lg px-3.5 py-1.5 shadow-sm transition-all">
+            <div class="flex items-baseline gap-2">
+              <span class="text-sm leading-snug whitespace-pre-wrap break-words">${textEscaped}</span>
+              <span class="text-[12px] text-[#9da5b4] whitespace-nowrap self-end select-none">${timeFormatted}</span>
             </div>
-            <div class="text-sm leading-relaxed whitespace-pre-wrap break-words">${textEscaped}</div>
-            <div class="text-[10px] text-blue-200/80 mt-1 text-right font-medium">${timeFormatted}</div>
           </div>
         </div>
       `);
     } else {
+      const senderId = msg.sender?.id || msg.sender_id;
+      const profileHref = senderId ? `/profile/${senderId}` : "#";
+
       htmlParts.push(`
-        <div class="flex items-start gap-2.5 mb-3 group" data-message-id="${msg.id}">
-          <img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="w-8 h-8 rounded-full flex-shrink-0 bg-slate-700 object-cover mt-0.5 border border-slate-700/60" />
+        <div class="flex items-start gap-2.5 mb-2.5 group" data-message-id="${msg.id}">
+          <a href="${profileHref}" class="flex-shrink-0 transition-transform hover:scale-105" title="Открыть профиль ${escapeHtml(senderName)}">
+            <img src="${avatarUrl}" alt="${escapeHtml(senderName)}" class="w-8 h-8 rounded-full bg-[#2d2d2d] object-cover mt-0.5 border border-[#3c3c3c] cursor-pointer" />
+          </a>
           
-          <div class="max-w-[85%] md:max-w-[70%] bg-slate-800 text-slate-100 border border-slate-700/60 rounded-2xl rounded-tl-sm px-4 py-2.5 shadow-sm transition-all">
-            <div class="text-[11px] font-semibold text-blue-400 mb-0.5 flex items-center gap-1.5">
-              <span>${escapeHtml(senderName)}</span>
+          <div class="max-w-[85%] md:max-w-[70%] bg-[#252526] text-[#cccccc] border border-[#383838] rounded-lg px-3.5 py-1.5 shadow-sm transition-all">
+            <div class="flex items-baseline gap-2">
+              <span class="text-sm leading-snug whitespace-pre-wrap break-words">${textEscaped}</span>
+              <span class="text-[12px] text-[#858585] whitespace-nowrap self-end select-none">${timeFormatted}</span>
             </div>
-            <div class="text-sm leading-relaxed whitespace-pre-wrap break-words">${textEscaped}</div>
-            <div class="text-[10px] text-slate-400 mt-1 text-right font-medium">${timeFormatted}</div>
           </div>
         </div>
       `);
@@ -216,7 +233,7 @@ export function renderMessages(chatId, shouldScrollToBottom = true) {
   if (shouldScrollToBottom) {
     scrollToBottom(false);
   }
-  }
+}
 
 // 4. Прокрутка ленты вниз
 export function scrollToBottom(smooth = true) {

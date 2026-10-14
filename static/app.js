@@ -221,6 +221,20 @@ if (messageForm) {
   });
 }
 
+// Кнопка прикрепления файлов (скрепка)
+const btnAttachFile = document.getElementById("btn-attach-file");
+const fileInput = document.getElementById("file-input");
+if (btnAttachFile && fileInput) {
+  btnAttachFile.addEventListener("click", () => {
+    fileInput.click();
+  });
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files && fileInput.files.length > 0) {
+      alert(`Выбран файл: ${fileInput.files[0].name}\n(Загрузка и отправка файлов на сервер запланирована в следующем обновлении)`);
+    }
+  });
+}
+
 // Подгрузка старых сообщений при прокрутке ленты вверх (Reverse Infinite Scroll)
 if (messagesContainer) {
   messagesContainer.addEventListener("scroll", async () => {

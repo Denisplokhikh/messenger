@@ -1,5 +1,9 @@
+import datetime
 from typing import Any, Literal
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, field_validator
+
+from app.schemas.message import MessageContent
+
 
 class WSAuthPayload(BaseModel):
     token: str | None = None
@@ -34,7 +38,7 @@ class WSPingAction(WSBaseAction):
 class WSSendMessageAction(WSBaseAction):
     action: Literal["send_message"] = "send_message"
     chat_id: int
-    content: str = Field(..., min_length=1)
+    content: MessageContent
 
     @field_validator("content")
     @classmethod
@@ -62,7 +66,7 @@ class WSMessagePayload(BaseModel):
     sender_id: int
     sender_username: str
     content: str
-    created_at: str
+    created_at: datetime.datetime
 
 class WSNewMessageEvent(BaseModel):
     event: str = "new_message"

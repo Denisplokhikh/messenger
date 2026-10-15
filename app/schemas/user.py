@@ -1,20 +1,24 @@
 import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from typing import Annotated
+
+Username = Annotated[str, Field(min_length=3, max_length=20)]
+Password = Annotated[str, Field(min_length=6, max_length=72)]
 
 
 class UserBase(BaseModel):
-    username: str
+    username: Username
     email: EmailStr
     full_name: str | None = None
     bio: str | None = None
 
 
 class UserCreate(UserBase):
-    password: str = Field(..., min_length=6, max_length=128)
+    password: Password
 
 
 class UserUpdate(BaseModel):
-    username: str | None = None
+    username: Username | None = None
     email: EmailStr | None = None
     full_name: str | None = None
     bio: str | None = None
@@ -23,7 +27,7 @@ class UserUpdate(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str
+    new_password: Password
 
 # 1. Публичные данные (видят ВСЕ пользователи, никакого email)
 class UserPublicResponse(BaseModel):

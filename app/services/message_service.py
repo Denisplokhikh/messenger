@@ -11,6 +11,7 @@ from app.models.message import Message
 from app.models.user import User
 from app.services.connection_manager import manager
 
+from app.schemas.ws import WSMessagePayload, WSNewMessageEvent
 
 class MessageService:
     def __init__(self, db: AsyncSession):
@@ -43,7 +44,7 @@ class MessageService:
         return list(reversed(messages))
 
     async def send_message(
-        self, chat_id: int, sender: User, content: str
+        self, chat_id: int, sender: User, content: str, exclude_sender: bool = False,
     ) -> Message:
         # 1. Проверяем, что пользователь состоит в чате, и получаем всех участников
         stmt = select(ChatParticipant.user_id).where(ChatParticipant.chat_id == chat_id)
@@ -68,21 +69,20 @@ class MessageService:
         await self.db.commit()
         await self.db.refresh(message, attribute_names=["sender"])
 
-        # 4. Рассылаем WebSocket-событие всем участникам
-        await manager.broadcast_to_users(
-            {
-                "event": "new_message",
-                "message": {
-                    "id": message.id,
-                    "chat_id": message.chat_id,
-                    "sender_id": message.sender_id,
-                    "content": message.content,
-                    "created_at": message.created_at.isoformat(),
-                    "sender_username": sender.username,
-                },
-            },
-            participant_ids,
+        # 4. Рассылаем WebSocket-событие участникам
+        # При отправке через HTTP отправитель получает сообщение в ответе, эхо по сокету дало бы дубль
+        recipient_ids = [uid for uid in participant_ids if not (exclude_sender and uid == sender.id)]
+        event = WSNewMessageEvent(
+            message=WSMessagePayload(
+                id=message.id,
+                chat_id=message.chat_id,
+                sender_id=message.sender_id,
+                sender_username=sender.username,
+                content=message.content,
+                created_at=message.created_at,
+            )
         )
+        await manager.broadcast_to_users(event.model_dump(mode="json"), recipient_ids)
         return message
 
 

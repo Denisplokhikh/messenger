@@ -32,15 +32,18 @@ STATIC_DIR = BASE_DIR / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Automatically apply Alembic migrations on startup
+    # Apply Alembic migrations on startup. Any failure aborts startup:
+    # serving requests without a valid schema is worse than not starting.
+    alembic_ini_path = BASE_DIR / "alembic.ini"
+    if not alembic_ini_path.exists():
+        raise RuntimeError(f"alembic.ini not found at {alembic_ini_path}")
     try:
-        alembic_ini_path = BASE_DIR / "alembic.ini"
-        if alembic_ini_path.exists():
-            alembic_cfg = Config(str(alembic_ini_path))
-            await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
-            logger.info("Alembic database migrations applied successfully.")
-    except Exception as e:
-        logger.warning(f"Alembic auto-migration warning: {e}")
+        alembic_cfg = Config(str(alembic_ini_path))
+        await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
+    except Exception:
+        logger.exception("Alembic migration failed, aborting startup")
+        raise
+    logger.info("Alembic database migrations applied successfully.")
 
     yield
     # Cleanup database engine connections on shutdown

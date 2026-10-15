@@ -143,7 +143,15 @@ async function selectChat(chatId) {
     console.error("Ошибка загрузки сообщений:", err);
   }
 }
-
+function addMessageToCache(chatId, msg) {
+  if (!state.messagesByChat[chatId]) {
+    state.messagesByChat[chatId] = [];
+  }
+  const exists = state.messagesByChat[chatId].some((m) => String(m.id) === String(msg.id));
+  if (!exists) {
+    state.messagesByChat[chatId].push(msg);
+  }
+}
 // ========================================================
 // 2. Обработка входящих сообщений (WebSocket)
 // ========================================================
@@ -151,13 +159,7 @@ function handleIncomingSocketMessage(msg) {
   const chatId = String(msg.chat_id);
 
   if (!state.messagesByChat[chatId]) {
-    state.messagesByChat[chatId] = [];
-  }
-
-  // Проверяем на дубликаты
-  const exists = state.messagesByChat[chatId].some((m) => String(m.id) === String(msg.id));
-  if (!exists) {
-    state.messagesByChat[chatId].push(msg);
+    addMessageToCache(chatId, msg);
   }
 
   // Обновляем последнее сообщение в карточке чата
@@ -233,11 +235,7 @@ if (messageForm) {
       for (const chunk of chunks) {
         const newMsg = await api.sendMessage(state.activeChatId, chunk);
 
-        // Добавляем в локальный кэш
-        if (!state.messagesByChat[chatId]) {
-          state.messagesByChat[chatId] = [];
-        }
-        state.messagesByChat[chatId].push(newMsg);
+        addMessageToCache(chatId, newMsg);
 
         // Обновляем последнее сообщение в сайдбаре
         const chatIndex = state.chats.findIndex((c) => String(c.id) === chatId);

@@ -1,10 +1,13 @@
 import datetime
+from typing import Annotated
 from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.user import UserResponse
 
+MessageContent = Annotated[str, Field(min_length=1, max_length=1000)]
+
 
 class MessageBase(BaseModel):
-    content: str = Field(..., min_length=1, max_length=1000)
+    content: MessageContent
 
 
 class MessageCreate(MessageBase):

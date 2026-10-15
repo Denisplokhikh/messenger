@@ -158,9 +158,8 @@ function addMessageToCache(chatId, msg) {
 function handleIncomingSocketMessage(msg) {
   const chatId = String(msg.chat_id);
 
-  if (!state.messagesByChat[chatId]) {
-    addMessageToCache(chatId, msg);
-  }
+  addMessageToCache(chatId, msg);
+  
 
   // Обновляем последнее сообщение в карточке чата
   const chatIndex = state.chats.findIndex((c) => String(c.id) === chatId);

@@ -2,27 +2,24 @@ import asyncio
 from datetime import datetime, timezone
 import json
 import logging
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
-from app.models.chat_participant import ChatParticipant
-from app.models.message import Message
 from app.models.user import User
 from app.schemas.ws import (
     WSAuthMessage,
     WSBaseAction,
     WSConnectionAck,
     WSErrorResponse,
-    WSMessagePayload,
-    WSNewMessageEvent,
     WSPingAction,
     WSPongResponse,
     WSSendMessageAction,
 )
 from app.services.connection_manager import manager
+from app.services.message_service import MessageService
 from app.utils.security import decode_access_token
 
 logger = logging.getLogger(__name__)
@@ -100,36 +97,16 @@ async def websocket_endpoint(
                     continue
 
                 async with AsyncSessionLocal() as session:
-                    # Verify user is in chat
-                    stmt = select(ChatParticipant.user_id).where(ChatParticipant.chat_id == msg_action.chat_id)
-                    res = await session.execute(stmt)
-                    participant_ids = res.scalars().all()
-
-                    if user.id not in participant_ids:
-                        err = WSErrorResponse(error="Chat not found or access denied")
-                        await websocket.send_text(err.model_dump_json())
-                        continue
-
-                    new_message = Message(
-                        chat_id=msg_action.chat_id,
-                        sender_id=user.id,
-                        content=msg_action.content,
-                    )
-                    session.add(new_message)
-                    await session.commit()
-                    await session.refresh(new_message)
-
-                    msg_event = WSNewMessageEvent(
-                        message=WSMessagePayload(
-                            id=new_message.id,
+                    service = MessageService(session)
+                    try:
+                        await service.send_message(
                             chat_id=msg_action.chat_id,
-                            sender_id=user.id,
-                            sender_username=user.username,
+                            sender=user,
                             content=msg_action.content,
-                            created_at=new_message.created_at.isoformat(),
                         )
-                    )
-                    await manager.broadcast_to_users(msg_event.model_dump(), participant_ids)
+                    except HTTPException as e:
+                        err = WSErrorResponse(error=e.detail)
+                        await websocket.send_text(err.model_dump_json())
 
             else:
                 err = WSErrorResponse(error=f"Unknown action: {base.action}")

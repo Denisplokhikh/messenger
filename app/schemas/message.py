@@ -1,10 +1,10 @@
 import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.user import UserResponse
 
 
 class MessageBase(BaseModel):
-    content: str
+    content: str = Field(..., min_length=1, max_length=1000)
 
 
 class MessageCreate(MessageBase):

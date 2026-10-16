@@ -129,9 +129,9 @@ function GroupChatForm({ onDone }) {
             {members.map((m) => (
               <span
                 key={m.id}
-                className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 py-0.5 pr-1 pl-0.5 text-xs dark:border-zinc-800"
+                className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 py-0.5 pr-1 pl-0.5 text-xs dark:border-zinc-800"
               >
-                <Avatar src={m.avatar_url} seed={m.username} size={18} className="rounded" />
+                <Avatar src={m.avatar_url} seed={m.username} size={18} />
                 <span className="font-mono">@{m.username}</span>
                 <button
                   type="button"

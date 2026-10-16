@@ -8,7 +8,7 @@ export default function Avatar({ src, seed, size = 36, className = "" }) {
       width={size}
       height={size}
       style={{ width: size, height: size }}
-      className={`shrink-0 rounded-md border border-zinc-200 bg-zinc-100 object-cover dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
+      className={`shrink-0 rounded-full border border-zinc-200 bg-zinc-100 object-cover dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
     />
   );
 }

@@ -98,7 +98,7 @@ function ProfileCard({ user, avatarAction, action }) {
   return (
     <section className="flex flex-col gap-5 sm:flex-row sm:items-start">
       <div className="relative self-start">
-        <Avatar src={user.avatar_url} seed={user.username} size={88} className="rounded-lg" />
+        <Avatar src={user.avatar_url} seed={user.username} size={88} />
         {avatarAction}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
@@ -244,7 +244,7 @@ function MyProfile({ user }) {
               label="Загрузить фото"
               onClick={() => fileInput.current?.click()}
               disabled={avatarBusy}
-              className={`${avatarButtonClass} -right-2 -bottom-2`}
+              className={`${avatarButtonClass} right-0 bottom-0 rounded-full`}
             >
               <CameraIcon size={14} />
             </IconButton>
@@ -253,7 +253,7 @@ function MyProfile({ user }) {
                 label="Удалить фото"
                 onClick={removeAvatar}
                 disabled={avatarBusy}
-                className={`${avatarButtonClass} -top-2 -right-2 hover:text-red-600 dark:hover:text-red-400`}
+                className={`${avatarButtonClass} top-0 right-0 rounded-full hover:text-red-600 dark:hover:text-red-400`}
               >
                 <TrashIcon size={14} />
               </IconButton>

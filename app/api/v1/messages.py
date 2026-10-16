@@ -15,10 +15,10 @@ async def get_chat_messages(
     current_user: Annotated[User, Depends(get_current_active_user)],
     message_service: Annotated[MessageService, Depends(get_message_service)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    offset: Annotated[int, Query(ge=0)] = 0,
+    before_id: Annotated[int | None, Query(ge=1)] = None,
 ):
     return await message_service.get_chat_messages(
-        chat_id=chat_id, user_id=current_user.id, limit=limit, offset=offset
+        chat_id=chat_id, user_id=current_user.id, limit=limit, before_id=before_id
     )
 
 

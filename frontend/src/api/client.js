@@ -76,8 +76,12 @@ export const api = {
       error: "Не удалось создать группу",
     }),
 
-  getMessages: (chatId, limit, offset) =>
-    request(`/chats/${chatId}/messages?limit=${limit}&offset=${offset}`, { error: "Не удалось загрузить сообщения" }),
+  // Без beforeId — последние сообщения, с ним — сообщения старше указанного
+  getMessages: (chatId, limit, beforeId) => {
+    const params = new URLSearchParams({ limit });
+    if (beforeId != null) params.set("before_id", beforeId);
+    return request(`/chats/${chatId}/messages?${params}`, { error: "Не удалось загрузить сообщения" });
+  },
   sendMessage: (chatId, content) =>
     request(`/chats/${chatId}/messages`, { method: "POST", body: { content }, error: "Не удалось отправить сообщение" }),
 };

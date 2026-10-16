@@ -43,4 +43,4 @@ class Message(Base):
     sender: Mapped["User"] = relationship("User", back_populates="messages")
 
     # Составной индекс для мгновенной пагинации истории чата
-    __table_args__ = (Index("idx_messages_chat_created", "chat_id", created_at.desc()),)
+    __table_args__ = (Index("idx_messages_chat_id", "chat_id", id.desc()),)

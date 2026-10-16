@@ -91,7 +91,7 @@ async def test_outsider_cannot_send_to_chat(client: AsyncClient, create_user, cr
 
 
 async def test_messages_pagination_order(client: AsyncClient, create_user, create_direct_chat):
-    # История отдаётся по возрастанию времени, а limit/offset отсчитываются от самых новых
+    # История отдаётся по возрастанию времени; курсор before_id — id самого старого из уже полученных
     user1 = await create_user()
     user2 = await create_user()
     chat_id = await create_direct_chat(user1, user2)
@@ -102,8 +102,14 @@ async def test_messages_pagination_order(client: AsyncClient, create_user, creat
         )
 
     url = f"/api/v1/chats/{chat_id}/messages"
-    latest = await client.get(url, params={"limit": 2, "offset": 0}, headers=user1["headers"])
+    latest = await client.get(url, params={"limit": 2}, headers=user1["headers"])
     assert [m["content"] for m in latest.json()] == ["3", "4"]
 
-    older = await client.get(url, params={"limit": 2, "offset": 2}, headers=user1["headers"])
+    cursor = latest.json()[0]["id"]
+    older = await client.get(url, params={"limit": 2, "before_id": cursor}, headers=user1["headers"])
     assert [m["content"] for m in older.json()] == ["1", "2"]
+
+    # Старше первого сообщения ничего нет — история закончилась
+    cursor = older.json()[0]["id"]
+    empty = await client.get(url, params={"limit": 2, "before_id": cursor}, headers=user1["headers"])
+    assert empty.json() == []

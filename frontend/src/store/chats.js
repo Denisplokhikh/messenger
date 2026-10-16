@@ -59,7 +59,7 @@ export const useChatStore = create((set, get) => ({
 
   // Последние PAGE_SIZE сообщений чата. Кеш заменяется свежими данными с сервера.
   async loadMessages(chatId) {
-    const messages = await api.getMessages(chatId, PAGE_SIZE, 0);
+    const messages = await api.getMessages(chatId, PAGE_SIZE);
     set((s) => {
       // Черновики, которые сервер ещё не подтвердил, остаются в конце ленты
       const drafts = (s.messagesByChat[chatId] ?? []).filter((m) => m.status);
@@ -71,11 +71,11 @@ export const useChatStore = create((set, get) => ({
   },
 
   async loadOlder(chatId) {
-    // Неподтверждённые сообщения на сервере ещё не лежат — в offset их не считаем
-    const current = (get().messagesByChat[chatId] ?? []).filter((m) => !m.status);
-    if (current.length === 0 || get().hasMoreByChat[chatId] === false) return;
+    // Курсор — самое старое подтверждённое сообщение; у черновиков id временный (tmp-N)
+    const oldest = (get().messagesByChat[chatId] ?? []).find((m) => !m.status);
+    if (!oldest || get().hasMoreByChat[chatId] === false) return;
 
-    const older = await api.getMessages(chatId, PAGE_SIZE, current.length);
+    const older = await api.getMessages(chatId, PAGE_SIZE, oldest.id);
     set((s) => {
       const list = s.messagesByChat[chatId] ?? [];
       const ids = new Set(list.map((m) => m.id));

@@ -18,7 +18,7 @@ class MessageService:
         self.db = db
 
     async def get_chat_messages(
-        self, chat_id: int, user_id: int, limit: int = 50, offset: int = 0
+        self, chat_id: int, user_id: int, limit: int = 50, before_id: int | None = None,
     ) -> list[Message]:
         # Проверяем, что пользователь состоит в чате
         stmt_check = select(ChatParticipant.id).where(
@@ -35,10 +35,11 @@ class MessageService:
             select(Message)
             .where(Message.chat_id == chat_id)
             .options(selectinload(Message.sender))
-            .order_by(Message.created_at.desc())
-            .offset(offset)
+            .order_by(Message.id.desc())
             .limit(limit)
         )
+        if before_id is not None:
+            stmt = stmt.where(Message.id < before_id)
         res = await self.db.execute(stmt)
         messages = res.scalars().all()
         return list(reversed(messages))

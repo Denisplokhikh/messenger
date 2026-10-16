@@ -1,4 +1,12 @@
- # 1. Базовый легковесный образ Python
+# 0. Сборка React-фронтенда
+FROM node:22-alpine AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+# 1. Базовый легковесный образ Python
 FROM python:3.11-slim
     
 # 2. Отключаем буферизацию вывода Python и создание .pyc файлов
@@ -16,6 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
     
     # 6. Копируем остальной исходный код проекта
 COPY . .
+COPY --from=frontend /frontend/dist ./frontend/dist
     
     # 7. Указываем порт, который слушает приложение
 EXPOSE 8000

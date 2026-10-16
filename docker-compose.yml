@@ -27,7 +27,6 @@ services:
     environment:
       - POSTGRES_SERVER=db
     volumes:
-      - ./static:/app/static
       - ./app:/app/app
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
@@ -45,7 +44,6 @@ services:
       - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./static:/app/static:ro
     depends_on:
       - backend
 

@@ -1,0 +1,39 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  /* Акцентный цвет меняется здесь, в одном месте */
+  --color-accent: var(--color-indigo-600);
+  --color-accent-hover: var(--color-indigo-500);
+  --color-accent-text: var(--color-indigo-600);
+}
+
+/* color-scheme красит системные элементы (скроллбары, автозаполнение) под тему */
+:root {
+  color-scheme: light;
+  scrollbar-color: var(--color-zinc-300) transparent;
+}
+
+.dark {
+  --color-accent-text: var(--color-indigo-400);
+  color-scheme: dark;
+  scrollbar-color: var(--color-zinc-700) transparent;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  }
+}

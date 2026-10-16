@@ -43,6 +43,22 @@ docker compose up -d
 
 ---
 
+## Фронтенд (React + Vite)
+
+Исходники лежат в `frontend/` (React 18, react-router, zustand, Tailwind CSS v4). Нужен Node.js 20+.
+
+```bash
+cd frontend
+npm install
+npm run dev      # http://localhost:5173, /api и WebSocket проксируются на :8000
+npm run build    # сборка в frontend/dist — её отдаёт FastAPI на http://127.0.0.1:8000
+npm run lint
+```
+
+В Docker фронтенд собирается автоматически (multi-stage `Dockerfile`).
+
+---
+
 ## Основные эндпоинты
 
 ### Аутентификация (`/api/v1/auth`)

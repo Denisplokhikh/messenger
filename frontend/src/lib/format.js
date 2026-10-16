@@ -2,10 +2,6 @@ export function getAvatarUrl(seed) {
   return `https://api.dicebear.com/7.x/identicon/svg?seed=${encodeURIComponent(seed || "user")}`;
 }
 
-export function randomAvatarUrl() {
-  return getAvatarUrl(Math.random().toString(36).slice(2, 9));
-}
-
 export function formatTime(iso) {
   if (!iso) return "";
   return new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });

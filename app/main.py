@@ -75,6 +75,11 @@ async def health_check():
     }
 
 
+# Загруженные пользователями файлы. StaticFiles падает на несуществующей папке, поэтому создаём заранее.
+# Монтируем до SPA fallback, иначе /media/... вернёт index.html
+settings.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
+
 # Ассеты Vite: в имени файла есть хеш, поэтому их можно кешировать надолго
 if (FRONTEND_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")

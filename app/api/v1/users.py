@@ -1,5 +1,7 @@
+import uuid
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,13 @@ from app.schemas.user import (
     UserResponse,
     UserUpdate,
     UserPublicResponse,
+)
+from app.services.avatar_service import (
+    AVATARS_DIR,
+    AVATARS_URL_PREFIX,
+    MAX_AVATAR_BYTES,
+    delete_avatar_file,
+    process_avatar,
 )
 from app.utils.security import get_password_hash, verify_password
 from app.utils.limiter import limiter
@@ -41,6 +50,67 @@ async def search_users(
 async def get_current_user_profile(
     current_user: Annotated[User, Depends(get_current_active_user)],
 ):
+    return current_user
+
+
+@router.post("/me/avatar", response_model=UserResponse)
+@limiter.limit("5/minute")
+async def set_profile_picture(
+    file: Annotated[UploadFile, File()],
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+):
+    # Читаем на байт больше лимита: так узнаём о превышении, не загружая в память весь файл
+    data = await file.read(MAX_AVATAR_BYTES + 1)
+    if len(data) > MAX_AVATAR_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Файл слишком большой (максимум 5 МБ)",
+        )
+
+    # Pillow работает синхронно и грузит процессор — уносим из event loop
+    try:
+        webp = await run_in_threadpool(process_avatar, data)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Файл не является изображением",
+        )
+
+    # Случайное имя: не угадать чужой файл и не зависеть от имени, присланного клиентом
+    filename = f"{uuid.uuid4().hex}.webp"
+    AVATARS_DIR.mkdir(parents=True, exist_ok=True)
+    await run_in_threadpool((AVATARS_DIR / filename).write_bytes, webp)
+
+    old_url = current_user.avatar_url
+    current_user.avatar_url = AVATARS_URL_PREFIX + filename
+    try:
+        await db.commit()
+    except Exception:
+        # В базу не записалось — новый файл никому не нужен
+        delete_avatar_file(AVATARS_URL_PREFIX + filename)
+        raise
+    await db.refresh(current_user)
+
+    # Старый файл удаляем только после успешного коммита, иначе пользователь останется без аватарки
+    delete_avatar_file(old_url)
+    return current_user
+
+
+@router.delete("/me/avatar", response_model=UserResponse)
+@limiter.limit("5/minute")
+async def delete_profile_picture(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+):
+    # Без аватарки фронтенд рисует идентикон по username
+    old_url = current_user.avatar_url
+    current_user.avatar_url = None
+    await db.commit()
+    await db.refresh(current_user)
+    delete_avatar_file(old_url)
     return current_user
 
 
@@ -84,8 +154,6 @@ async def update_current_user_profile(
         current_user.full_name = user_update.full_name
     if user_update.bio is not None:
         current_user.bio = user_update.bio
-    if user_update.avatar_url is not None:
-        current_user.avatar_url = user_update.avatar_url
 
     await db.commit()
     await db.refresh(current_user)

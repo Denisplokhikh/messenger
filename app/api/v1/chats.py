@@ -6,6 +6,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_current_active_user, get_db
 from app.models.chat import Chat
+from app.models.message import Message
 from app.models.chat_participant import ChatParticipant
 from app.models.user import User
 from app.schemas.chat import ChatCreateDirect, ChatCreateGroup, ChatResponse
@@ -116,4 +117,24 @@ async def get_my_chats(
         .order_by(Chat.updated_at.desc())
     )
     res = await db.execute(stmt)
-    return res.scalars().all()
+    
+    chats = res.scalars().all()
+    if not chats:
+        return chats
+    
+    stmt = (
+        select(Message)
+        .where(Message.chat_id.in_([chat.id for chat in chats]))
+        .distinct(Message.chat_id)
+        .order_by(Message.chat_id, Message.id.desc())
+        .options(selectinload(Message.sender))
+    )
+    result = await db.execute(stmt)
+    last_msgs = result.scalars().all() 
+
+    # У Chat нет такого атрибута в модели — проставляем вручную, Pydantic прочитает его при сериализации
+    last_by_chat = {msg.chat_id: msg for msg in last_msgs}
+    for chat in chats:
+        chat.last_message = last_by_chat.get(chat.id)
+
+    return chats

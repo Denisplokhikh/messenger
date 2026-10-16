@@ -13,6 +13,7 @@ export default defineConfig({
     // В dev-режиме API и WebSocket проксируются на FastAPI
     proxy: {
       "/api": { target: "http://localhost:8000", ws: true },
+      "/media": "http://localhost:8000",
     },
   },
 });

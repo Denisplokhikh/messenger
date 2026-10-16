@@ -22,13 +22,16 @@ function extractDetail(data) {
   return null;
 }
 
-async function request(path, { method = "GET", body, form, error = "Ошибка запроса" } = {}) {
+async function request(path, { method = "GET", body, form, formData, error = "Ошибка запроса" } = {}) {
   const headers = {};
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let payload;
-  if (form) {
+  if (formData) {
+    // Content-Type не ставим: браузер сам допишет multipart/form-data вместе с boundary
+    payload = formData;
+  } else if (form) {
     headers["Content-Type"] = "application/x-www-form-urlencoded";
     payload = new URLSearchParams(form);
   } else if (body !== undefined) {
@@ -59,6 +62,12 @@ export const api = {
   getUser: (userId) => request(`/users/${userId}`, { error: "Не удалось загрузить пользователя" }),
   searchUsers: (query) => request(`/users/search?query=${encodeURIComponent(query)}`, { error: "Ошибка поиска" }),
   updateProfile: (data) => request("/users/me", { method: "PATCH", body: data, error: "Не удалось сохранить профиль" }),
+  uploadAvatar: (blob) => {
+    const formData = new FormData();
+    formData.append("file", blob, "avatar");
+    return request("/users/me/avatar", { method: "POST", formData, error: "Не удалось загрузить фото" });
+  },
+  deleteAvatar: () => request("/users/me/avatar", { method: "DELETE", error: "Не удалось удалить фото" }),
   changePassword: (currentPassword, newPassword) =>
     request("/users/me/change-password", {
       method: "POST",

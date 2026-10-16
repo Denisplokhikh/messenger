@@ -34,6 +34,41 @@ async def test_chat_list_shows_only_my_chats(client: AsyncClient, create_user, c
     assert chat_id not in [c["id"] for c in resp_outsider.json()]
 
 
+async def test_chat_list_has_last_message(client: AsyncClient, create_user, create_direct_chat):
+    # Превью в списке чатов должно приходить с сервера, а не только из WebSocket
+    user1 = await create_user()
+    user2 = await create_user()
+    user3 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    other_chat_id = await create_direct_chat(user1, user3)
+
+    for text in ["first", "second"]:
+        await client.post(
+            f"/api/v1/chats/{chat_id}/messages", json={"content": text}, headers=user1["headers"]
+        )
+    await client.post(
+        f"/api/v1/chats/{other_chat_id}/messages", json={"content": "other"}, headers=user1["headers"]
+    )
+
+    resp = await client.get("/api/v1/chats", headers=user1["headers"])
+    assert resp.status_code == 200
+    chats = {c["id"]: c for c in resp.json()}
+    # У каждого чата своё последнее сообщение, они не перепутаны между чатами
+    assert chats[chat_id]["last_message"]["content"] == "second"
+    assert chats[other_chat_id]["last_message"]["content"] == "other"
+
+
+async def test_chat_list_without_messages(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+
+    resp = await client.get("/api/v1/chats", headers=user1["headers"])
+    assert resp.status_code == 200
+    chats = {c["id"]: c for c in resp.json()}
+    assert chats[chat_id]["last_message"] is None
+
+
 # ---------- Сообщения ----------
 
 async def test_send_and_read_message(client: AsyncClient, create_user, create_direct_chat):

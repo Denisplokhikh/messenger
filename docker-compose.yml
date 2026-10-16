@@ -26,10 +26,19 @@ services:
       - .env
     environment:
       - POSTGRES_SERVER=db
+      # На Windows события изменения файлов не доходят в контейнер — следим опросом
+      - WATCHFILES_FORCE_POLLING=true
+    # Dev-режим: uvicorn перезапускается сам при изменениях в смонтированной ./app
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips *
+      --reload --reload-dir /app/app
     volumes:
       - ./app:/app/app
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
+      # Аватарки и прочие загрузки переживают пересборку контейнера
+      - media_data:/app/media
     ports:
       - "8000:8000"
     depends_on:
@@ -60,3 +69,4 @@ services:
 
 volumes:
   postgres_data:
+  media_data:

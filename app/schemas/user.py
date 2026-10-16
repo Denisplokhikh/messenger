@@ -22,7 +22,8 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     full_name: str | None = None
     bio: str | None = None
-    avatar_url: str | None = None
+    # avatar_url намеренно нет: произвольная ссылка позволила бы светить IP всех, кто видит аватар.
+    # Аватар меняется только через POST/DELETE /users/me/avatar
 
 
 class ChangePasswordRequest(BaseModel):

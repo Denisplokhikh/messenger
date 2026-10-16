@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import Avatar from "../components/Avatar";
+import AvatarCropModal from "../components/AvatarCropModal";
 import ThemeToggle from "../components/ThemeToggle";
-import { ArrowLeftIcon, CopyIcon, LogOutIcon, MessageIcon, ShuffleIcon } from "../components/icons";
+import { ArrowLeftIcon, CameraIcon, CopyIcon, LogOutIcon, MessageIcon, TrashIcon } from "../components/icons";
 import { Button, Field, FullScreenMessage, IconButton, Input, Spinner, inputClass } from "../components/ui";
-import { randomAvatarUrl } from "../lib/format";
+import { cropToBlob } from "../lib/cropImage";
 import { useAuthStore } from "../store/auth";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
@@ -82,7 +83,7 @@ export default function ProfilePage() {
   );
 }
 
-function ProfileCard({ user, avatarUrl, avatarAction, action }) {
+function ProfileCard({ user, avatarAction, action }) {
   function copyUsername() {
     navigator.clipboard
       .writeText(`@${user.username}`)
@@ -97,7 +98,7 @@ function ProfileCard({ user, avatarUrl, avatarAction, action }) {
   return (
     <section className="flex flex-col gap-5 sm:flex-row sm:items-start">
       <div className="relative self-start">
-        <Avatar src={avatarUrl ?? user.avatar_url} seed={user.username} size={88} className="rounded-lg" />
+        <Avatar src={user.avatar_url} seed={user.username} size={88} className="rounded-lg" />
         {avatarAction}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
@@ -163,8 +164,11 @@ function MyProfile({ user }) {
     email: user.email ?? "",
     bio: user.bio ?? "",
   });
-  const [avatarUrl, setAvatarUrl] = useState(user.avatar_url);
   const [saving, setSaving] = useState(false);
+
+  const fileInput = useRef(null);
+  const [cropSrc, setCropSrc] = useState(null); // object URL выбранного файла, пока открыт кроп
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -177,7 +181,6 @@ function MyProfile({ user }) {
         full_name: form.full_name.trim(),
         email: form.email.trim(),
         bio: form.bio.trim(),
-        avatar_url: avatarUrl,
       });
       setUser(updated);
       toast.success("Профиль сохранён");
@@ -188,23 +191,78 @@ function MyProfile({ user }) {
     }
   }
 
-  const avatarChanged = avatarUrl !== user.avatar_url;
+  function pickFile(e) {
+    const file = e.target.files?.[0];
+    // Сбрасываем, чтобы повторный выбор того же файла снова вызвал onChange
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Выберите изображение");
+      return;
+    }
+    setCropSrc(URL.createObjectURL(file));
+  }
+
+  function closeCrop() {
+    URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  }
+
+  // Аватар сохраняется сразу, без кнопки «Сохранить» формы: файл всё равно уже на сервере
+  async function uploadCropped(area) {
+    try {
+      const blob = await cropToBlob(cropSrc, area);
+      setUser(await api.uploadAvatar(blob));
+      toast.success("Фото обновлено");
+      closeCrop();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  }
+
+  async function removeAvatar() {
+    setAvatarBusy(true);
+    try {
+      setUser(await api.deleteAvatar());
+      toast.success("Фото удалено");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  const avatarButtonClass = "absolute border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950";
 
   return (
     <>
       <ProfileCard
         user={user}
-        avatarUrl={avatarUrl}
         avatarAction={
-          <IconButton
-            label="Случайный аватар"
-            onClick={() => setAvatarUrl(randomAvatarUrl())}
-            className="absolute -right-2 -bottom-2 border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
-          >
-            <ShuffleIcon size={14} />
-          </IconButton>
+          <>
+            <IconButton
+              label="Загрузить фото"
+              onClick={() => fileInput.current?.click()}
+              disabled={avatarBusy}
+              className={`${avatarButtonClass} -right-2 -bottom-2`}
+            >
+              <CameraIcon size={14} />
+            </IconButton>
+            {user.avatar_url && (
+              <IconButton
+                label="Удалить фото"
+                onClick={removeAvatar}
+                disabled={avatarBusy}
+                className={`${avatarButtonClass} -top-2 -right-2 hover:text-red-600 dark:hover:text-red-400`}
+              >
+                <TrashIcon size={14} />
+              </IconButton>
+            )}
+            <input ref={fileInput} type="file" accept="image/*" hidden onChange={pickFile} />
+          </>
         }
       />
+      {cropSrc && <AvatarCropModal src={cropSrc} onCancel={closeCrop} onSave={uploadCropped} />}
 
       <Section title="Профиль" description="Имя, email и информация о себе">
         <form onSubmit={save} className="space-y-4">
@@ -223,7 +281,6 @@ function MyProfile({ user }) {
             <textarea value={form.bio} onChange={set("bio")} rows={3} className={`${inputClass} resize-y`} />
           </Field>
           <div className="flex items-center justify-end gap-3">
-            {avatarChanged && <span className="text-xs text-zinc-500">Новый аватар применится после сохранения</span>}
             <Button type="submit" disabled={saving}>
               Сохранить
             </Button>

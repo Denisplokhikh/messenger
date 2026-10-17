@@ -43,14 +43,12 @@ const initialState = {
   chatsLoaded: false,
   messagesByChat: {}, // { [chatId]: Message[] } — от старых к новым
   hasMoreByChat: {}, // { [chatId]: boolean } — есть ли ещё история выше
-  wsConnected: false,
 };
 
 export const useChatStore = create((set, get) => ({
   ...initialState,
 
   reset: () => set(initialState),
-  setWsConnected: (wsConnected) => set({ wsConnected }),
 
   async loadChats() {
     const chats = await api.getChats();

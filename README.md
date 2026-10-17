@@ -51,16 +51,10 @@ docker compose up -d --build
 1. New Resource → репозиторий → Build Pack **Docker Compose**, файл `/docker-compose.prod.yml`.
 2. У сервиса `backend` указать домен с портом: `https://chat.example.com:8000`.
 3. Environment Variables: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `SECRET_KEY`, `MESSAGE_ENCRYPTION_KEY` (без них деплой упадёт сразу).
-4. **Выключить Auto Deploy** — деплой запускает GitHub Actions после тестов.
+4. Auto Deploy выключен — деплой запускается вручную кнопкой **Deploy** в Coolify.
 5. Включить бэкапы Postgres. Копию `MESSAGE_ENCRYPTION_KEY` хранить отдельно: без неё бэкап бесполезен.
 
-Пайплайн `.github/workflows/ci.yml`:
-- на PR и push в `master`: backend-тесты, lint + build фронтенда, сборка Docker-образа;
-- на push в `master` после зелёных проверок — job `deploy` вызывает deploy-webhook Coolify.
-
-Секреты репозитория (Settings → Secrets and variables → Actions, environment `production`):
-- `COOLIFY_WEBHOOK` — Coolify → ресурс → Webhooks → Deploy Webhook;
-- `COOLIFY_TOKEN` — Coolify → Keys & Tokens → API token с правом deploy.
+CI (`.github/workflows/ci.yml`) на PR и push в `master` гоняет backend-тесты, lint + build фронтенда и сборку Docker-образа. На прод он ничего не выкатывает.
 
 ---
 

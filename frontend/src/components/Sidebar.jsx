@@ -15,7 +15,6 @@ export default function Sidebar({ activeChatId, className = "" }) {
   const logout = useAuthStore((s) => s.logout);
   const chats = useChatStore((s) => s.chats);
   const chatsLoaded = useChatStore((s) => s.chatsLoaded);
-  const wsConnected = useChatStore((s) => s.wsConnected);
 
   const [query, setQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -28,15 +27,7 @@ export default function Sidebar({ activeChatId, className = "" }) {
       className={`w-full flex-col border-zinc-200 bg-zinc-50/60 md:w-80 md:border-r lg:w-96 dark:border-zinc-800 dark:bg-zinc-950 ${className}`}
     >
       <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 dark:border-zinc-800">
-        <div className="flex items-baseline gap-2.5">
-          <span className="font-semibold tracking-tight">messenger</span>
-          <span
-            className={`flex items-center gap-1.5 font-mono text-[11px] ${wsConnected ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-400"}`}
-          >
-            <span className={`size-1.5 rounded-full ${wsConnected ? "bg-emerald-500" : "bg-zinc-400"}`} />
-            {wsConnected ? "online" : "offline"}
-          </span>
-        </div>
+        <span className="font-semibold tracking-tight">messenger</span>
         <div className="flex items-center gap-0.5">
           <ThemeToggle />
           <IconButton label="Новый чат" onClick={() => setModalOpen(true)}>

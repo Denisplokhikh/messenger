@@ -1,6 +1,6 @@
-name: CI/CD
+name: CI
 
-# Push в master: тесты → деплой. PR: только проверки, без деплоя.
+# Только проверки: тесты, фронтенд, сборка образа. Деплой не запускается — его делают вручную в Coolify.
 # Push в другие ветки не запускает CI отдельно — он и так прогонится на PR
 on:
   push:
@@ -99,28 +99,3 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # Coolify сам клонирует репозиторий и собирает образ, мы только даём команду.
-  # Auto Deploy в Coolify должен быть выключен, иначе деплой пойдёт до окончания тестов
-  deploy:
-    needs: [tests, frontend, docker]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    environment: production
-    # Два деплоя одновременно не запускаем, но и начатый не отменяем
-    concurrency:
-      group: deploy-production
-      cancel-in-progress: false
-
-    steps:
-      - name: Trigger Coolify deploy
-        env:
-          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
-          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
-        # Блочный скаляр: иначе ": " внутри "Authorization: Bearer" YAML принимает за ключ
-        run: |
-          if [ -z "$COOLIFY_WEBHOOK" ] || [ -z "$COOLIFY_TOKEN" ]; then
-            echo "::error::Не заданы секреты COOLIFY_WEBHOOK / COOLIFY_TOKEN (Settings → Secrets and variables → Actions)"
-            exit 1
-          fi
-          curl --fail-with-body -sS "$COOLIFY_WEBHOOK" -H "Authorization: Bearer $COOLIFY_TOKEN"

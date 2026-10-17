@@ -8,7 +8,6 @@ export function useSocket() {
   useEffect(() => {
     connectSocket({
       onMessage: (msg) => useChatStore.getState().addMessage(msg),
-      onStatus: (connected) => useChatStore.getState().setWsConnected(connected),
     });
     return () => disconnectSocket();
   }, []);

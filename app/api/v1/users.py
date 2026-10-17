@@ -183,14 +183,14 @@ async def change_password(
     return {"message": "Пароль успешно изменен"}
 
 
-@router.get("/{user_id}", response_model=UserPublicResponse)
-async def get_user_by_id(
-    user_id: int,
+@router.get("/{user_uuid}", response_model=UserPublicResponse)
+async def get_user_by_uuid(
+    user_uuid: uuid.UUID,
     _: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
 ):
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.uuid == user_uuid))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(

@@ -44,6 +44,16 @@ async def test_expired_token_access_denied(client: AsyncClient, create_user):
     assert resp.json()["detail"] == "Could not validate credentials"
 
 
+# 2a. Старый формат токена (sub = числовой id) больше не принимается
+async def test_legacy_numeric_sub_token_rejected(client: AsyncClient, create_user):
+    await create_user()
+    resp = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {create_access_token(subject=1)}"},
+    )
+    assert resp.status_code == 401
+
+
 # 3. А что если пользователь попытался создать чат сам с собой?
 async def test_cannot_create_direct_chat_with_self(client: AsyncClient, create_user):
     user = await create_user()
@@ -94,7 +104,8 @@ def test_websocket_sudden_disconnect_cleanup(sync_client: TestClient):
         "password": "valid_password_123",
     }
     r = sync_client.post("/api/v1/auth/register", json=u_data)
-    user_id = r.json()["id"]
+    # Менеджер хранит соединения по uuid пользователя
+    user_id = uuid.UUID(r.json()["id"])
 
     login_r = sync_client.post(
         "/api/v1/auth/login",

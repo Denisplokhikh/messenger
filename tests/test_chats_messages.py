@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import text as sql_text
 from httpx import AsyncClient
 
@@ -17,9 +19,55 @@ async def test_direct_chat_is_reused(client: AsyncClient, create_user, create_di
 async def test_direct_chat_with_unknown_user(client: AsyncClient, create_user):
     user = await create_user()
     resp = await client.post(
-        "/api/v1/chats/direct", json={"recipient_id": 999999999}, headers=user["headers"]
+        "/api/v1/chats/direct", json={"recipient_id": str(uuid.uuid4())}, headers=user["headers"]
     )
     assert resp.status_code == 404
+
+
+async def test_ids_are_uuids(client: AsyncClient, create_user, create_direct_chat):
+    # Наружу не должны утекать порядковые id: пользователи и чаты отдаются по uuid
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    uuid.UUID(user1["id"])
+    uuid.UUID(chat_id)
+
+    send = await client.post(
+        f"/api/v1/chats/{chat_id}/messages", json={"content": "hi"}, headers=user1["headers"]
+    )
+    assert send.json()["chat_id"] == chat_id
+    assert send.json()["sender_id"] == user1["id"]
+
+
+async def test_chat_by_numeric_id_rejected(client: AsyncClient, create_user):
+    user = await create_user()
+    resp = await client.get("/api/v1/chats/1/messages", headers=user["headers"])
+    assert resp.status_code == 422
+
+
+async def test_group_chat_with_unknown_participant(client: AsyncClient, create_user):
+    user1 = await create_user()
+    user2 = await create_user()
+    resp = await client.post(
+        "/api/v1/chats/group",
+        json={"name": "g", "participant_ids": [user2["id"], str(uuid.uuid4())]},
+        headers=user1["headers"],
+    )
+    assert resp.status_code == 404
+
+
+async def test_group_chat_participants(client: AsyncClient, create_user):
+    user1 = await create_user()
+    user2 = await create_user()
+    user3 = await create_user()
+    resp = await client.post(
+        "/api/v1/chats/group",
+        json={"name": "g", "participant_ids": [user2["id"], user3["id"]]},
+        headers=user1["headers"],
+    )
+    assert resp.status_code == 200, resp.text
+    members = {p["user_id"] for p in resp.json()["participants"]}
+    assert members == {user1["id"], user2["id"], user3["id"]}
 
 
 async def test_chat_list_shows_only_my_chats(client: AsyncClient, create_user, create_direct_chat):

@@ -1,3 +1,5 @@
+import uuid
+
 from httpx import AsyncClient
 
 
@@ -111,5 +113,5 @@ async def test_search_excludes_self_and_hides_email(client: AsyncClient, create_
 
 async def test_get_unknown_user(client: AsyncClient, create_user):
     user = await create_user()
-    resp = await client.get("/api/v1/users/999999999", headers=user["headers"])
+    resp = await client.get(f"/api/v1/users/{uuid.uuid4()}", headers=user["headers"])
     assert resp.status_code == 404

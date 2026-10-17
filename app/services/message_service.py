@@ -1,3 +1,4 @@
+import uuid
 from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import func, select, update
@@ -17,24 +18,33 @@ class MessageService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_chat_messages(
-        self, chat_id: int, user_id: int, limit: int = 50, before_id: int | None = None,
-    ) -> list[Message]:
-        # Проверяем, что пользователь состоит в чате
-        stmt_check = select(ChatParticipant.id).where(
-            ChatParticipant.chat_id == chat_id, ChatParticipant.user_id == user_id
+    async def _get_chat_for_participant(self, chat_uuid: uuid.UUID, user_id: int) -> Chat:
+        """Чат по публичному uuid, если пользователь в нём состоит, иначе 404.
+
+        Для чужого и несуществующего чата ответ одинаковый — нельзя узнать, существует ли чат.
+        """
+        stmt = (
+            select(Chat)
+            .join(ChatParticipant)
+            .where(Chat.uuid == chat_uuid, ChatParticipant.user_id == user_id)
         )
-        res_check = await self.db.execute(stmt_check)
-        if not res_check.scalar_one_or_none():
+        chat = (await self.db.execute(stmt)).scalar_one_or_none()
+        if chat is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Chat not found or access denied",
             )
+        return chat
+
+    async def get_chat_messages(
+        self, chat_uuid: uuid.UUID, user_id: int, limit: int = 50, before_id: int | None = None,
+    ) -> list[Message]:
+        chat = await self._get_chat_for_participant(chat_uuid, user_id)
 
         stmt = (
             select(Message)
-            .where(Message.chat_id == chat_id)
-            .options(selectinload(Message.sender))
+            .where(Message.chat_id == chat.id)
+            .options(selectinload(Message.sender), selectinload(Message.chat))
             .order_by(Message.id.desc())
             .limit(limit)
         )
@@ -45,45 +55,45 @@ class MessageService:
         return list(reversed(messages))
 
     async def send_message(
-        self, chat_id: int, sender: User, content: str, exclude_sender: bool = False,
+        self, chat_uuid: uuid.UUID, sender: User, content: str, exclude_sender: bool = False,
     ) -> Message:
-        # 1. Проверяем, что пользователь состоит в чате, и получаем всех участников
-        stmt = select(ChatParticipant.user_id).where(ChatParticipant.chat_id == chat_id)
-        res = await self.db.execute(stmt)
-        participant_ids = res.scalars().all()
-
-        if sender.id not in participant_ids:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Chat not found or access denied",
-            )
+        # 1. Проверяем, что пользователь состоит в чате, и получаем uuid всех участников для рассылки
+        chat = await self._get_chat_for_participant(chat_uuid, sender.id)
+        stmt = (
+            select(User.uuid)
+            .join(ChatParticipant, ChatParticipant.user_id == User.id)
+            .where(ChatParticipant.chat_id == chat.id)
+        )
+        participant_uuids = (await self.db.execute(stmt)).scalars().all()
 
         # 2. Создаем сообщение
-        message = Message(chat_id=chat_id, sender_id=sender.id, content=content)
+        message = Message(chat_id=chat.id, sender_id=sender.id, content=content)
         self.db.add(message)
 
         # 3. Обновляем время чата (чтобы он поднимался наверх в списке диалогов)
         await self.db.execute(
-            update(Chat).where(Chat.id == chat_id).values(updated_at=func.now())
+            update(Chat).where(Chat.id == chat.id).values(updated_at=func.now())
         )
 
         await self.db.commit()
-        await self.db.refresh(message, attribute_names=["sender"])
+        await self.db.refresh(message, attribute_names=["sender", "chat"])
 
         # 4. Рассылаем WebSocket-событие участникам
         # При отправке через HTTP отправитель получает сообщение в ответе, эхо по сокету дало бы дубль
-        recipient_ids = [uid for uid in participant_ids if not (exclude_sender and uid == sender.id)]
+        recipient_uuids = [
+            u for u in participant_uuids if not (exclude_sender and u == sender.uuid)
+        ]
         event = WSNewMessageEvent(
             message=WSMessagePayload(
                 id=message.id,
-                chat_id=message.chat_id,
-                sender_id=message.sender_id,
+                chat_id=chat_uuid,
+                sender_id=sender.uuid,
                 sender_username=sender.username,
                 content=message.content,
                 created_at=message.created_at,
             )
         )
-        await manager.broadcast_to_users(event.model_dump(mode="json"), recipient_ids)
+        await manager.broadcast_to_users(event.model_dump(mode="json"), recipient_uuids)
         return message
 
 

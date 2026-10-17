@@ -17,7 +17,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1"]
+      # Без -U pg_isready ходит под пользователем ОС (root), и Postgres пишет в лог FATAL: role "root" does not exist
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "${POSTGRES_USER:-postgres}", "-d", "${POSTGRES_DB:-messenger_db}"]
       interval: 5s
       timeout: 5s
       retries: 10

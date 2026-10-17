@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from typing import Any, Literal
 from pydantic import BaseModel, field_validator
 
@@ -37,7 +38,7 @@ class WSPingAction(WSBaseAction):
 
 class WSSendMessageAction(WSBaseAction):
     action: Literal["send_message"] = "send_message"
-    chat_id: int
+    chat_id: uuid.UUID
     content: MessageContent
 
     @field_validator("content")
@@ -51,7 +52,7 @@ class WSSendMessageAction(WSBaseAction):
 class WSConnectionAck(BaseModel):
     event: str = "connected"
     type: str = "connection_ack"
-    user_id: int
+    user_id: uuid.UUID
     username: str
 
 class WSPongResponse(BaseModel):
@@ -62,8 +63,8 @@ class WSErrorResponse(BaseModel):
 
 class WSMessagePayload(BaseModel):
     id: int
-    chat_id: int
-    sender_id: int
+    chat_id: uuid.UUID
+    sender_id: uuid.UUID
     sender_username: str
     content: str
     created_at: datetime.datetime

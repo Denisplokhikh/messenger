@@ -15,7 +15,7 @@ import NotFoundPage from "./NotFoundPage";
 export default function ProfilePage() {
   const { userId } = useParams();
   const me = useAuthStore((s) => s.user);
-  const isMe = !userId || Number(userId) === me.id;
+  const isMe = !userId || userId === me.id;
 
   // Чужой профиль грузим с сервера, свой берём из стора
   const [other, setOther] = useState(null);
@@ -108,7 +108,6 @@ function ProfileCard({ user, avatarAction, action }) {
             @{user.username}
             <CopyIcon size={12} />
           </button>
-          <span>id:{user.id}</span>
           {registered && <span>с {registered}</span>}
         </div>
         {user.bio && <p className="text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{user.bio}</p>}

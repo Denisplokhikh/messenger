@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timezone
 import json
 import logging
+import uuid
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -33,12 +34,12 @@ async def authenticate_ws(token: str | None) -> User | None:
     if not payload or "sub" not in payload:
         return None
     try:
-        user_id = int(payload["sub"])
-    except ValueError:
+        user_uuid = uuid.UUID(payload["sub"])
+    except (ValueError, TypeError, AttributeError):
         return None
 
     async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.id == user_id))
+        result = await session.execute(select(User).where(User.uuid == user_uuid))
         user = result.scalar_one_or_none()
         if user and user.is_active:
             return user
@@ -68,9 +69,9 @@ async def websocket_endpoint(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    manager.connect(user.id, websocket)
+    manager.connect(user.uuid, websocket)
 
-    ack = WSConnectionAck(user_id=user.id, username=user.username)
+    ack = WSConnectionAck(user_id=user.uuid, username=user.username)
     await websocket.send_text(ack.model_dump_json())
 
     try:
@@ -100,7 +101,7 @@ async def websocket_endpoint(
                     service = MessageService(session)
                     try:
                         await service.send_message(
-                            chat_id=msg_action.chat_id,
+                            chat_uuid=msg_action.chat_id,
                             sender=user,
                             content=msg_action.content,
                         )
@@ -113,9 +114,9 @@ async def websocket_endpoint(
                 await websocket.send_text(err.model_dump_json())
 
     except WebSocketDisconnect:
-        manager.disconnect(user.id, websocket)
+        manager.disconnect(user.uuid, websocket)
     except Exception as e:
-        logger.exception(f"Unexpected error in WS for user {user.id}: {e}")
-        manager.disconnect(user.id, websocket)
+        logger.exception(f"Unexpected error in WS for user {user.uuid}: {e}")
+        manager.disconnect(user.uuid, websocket)
 
 

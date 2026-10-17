@@ -35,7 +35,6 @@ export default function ChatHeader({ chat, myId }) {
         <div className="flex min-w-0 items-center gap-3">{identity}</div>
       )}
 
-      <span className="ml-auto shrink-0 font-mono text-[11px] text-zinc-400">#{chat.id}</span>
     </header>
   );
 }

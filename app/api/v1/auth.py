@@ -63,7 +63,7 @@ async def login_for_access_token(
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
 
-    access_token = create_access_token(subject=user.id)
+    access_token = create_access_token(subject=user.uuid)
     return Token(access_token=access_token, token_type="bearer")
 
 

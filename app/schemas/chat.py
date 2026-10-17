@@ -1,5 +1,6 @@
 import datetime
-from pydantic import BaseModel, ConfigDict
+import uuid
+from pydantic import AliasPath, BaseModel, ConfigDict, Field
 from app.schemas.user import UserPublicResponse, UserResponse
 from app.schemas.message import MessageResponse
 
@@ -10,16 +11,16 @@ class ChatBase(BaseModel):
 
 
 class ChatCreateDirect(BaseModel):
-    recipient_id: int
+    recipient_id: uuid.UUID
 
 
 class ChatCreateGroup(BaseModel):
     name: str
-    participant_ids: list[int]
+    participant_ids: list[uuid.UUID]
 
 
 class ChatParticipantResponse(BaseModel):
-    user_id: int
+    user_id: uuid.UUID = Field(validation_alias=AliasPath("user", "uuid"))
     joined_at: datetime.datetime
     user: UserPublicResponse
 
@@ -27,7 +28,8 @@ class ChatParticipantResponse(BaseModel):
 
 
 class ChatResponse(ChatBase):
-    id: int
+    # Наружу id — это публичный uuid чата
+    id: uuid.UUID = Field(validation_alias="uuid")
     created_at: datetime.datetime
     updated_at: datetime.datetime
     participants: list[ChatParticipantResponse] = []

@@ -1,5 +1,6 @@
 import datetime
-from sqlalchemy import Boolean, DateTime, Integer, String
+from uuid import UUID, uuid4
+from sqlalchemy import Boolean, DateTime, Integer, String, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -10,6 +11,12 @@ class Chat(Base):
     __tablename__ = "chats"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    # Публичный идентификатор для URL и API. Числовой id остаётся только внутри базы (связи, JOIN'ы),
+    # чтобы по нему нельзя было перебирать чужие записи и узнать их количество
+    uuid: Mapped[UUID] = mapped_column(
+        Uuid, unique=True, index=True, nullable=False,
+        default=uuid4, server_default=text("gen_random_uuid()"),
+    )
     name: Mapped[str | None] = mapped_column(String(100), nullable=True)  # Name for group chats
     is_group: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 

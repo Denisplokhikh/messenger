@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from typing import Annotated
 
@@ -32,7 +33,8 @@ class ChangePasswordRequest(BaseModel):
 
 # 1. Публичные данные (видят ВСЕ пользователи, никакого email)
 class UserPublicResponse(BaseModel):
-    id: int
+    # Наружу id — это публичный uuid, внутренний числовой id не отдаём
+    id: uuid.UUID = Field(validation_alias="uuid")
     username: str
     full_name: str | None = None
     bio: str | None = None

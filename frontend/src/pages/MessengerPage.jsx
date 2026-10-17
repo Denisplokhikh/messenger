@@ -9,7 +9,8 @@ import { toast } from "../store/toast";
 
 export default function MessengerPage() {
   const { chatId } = useParams();
-  const activeChatId = chatId ? Number(chatId) : null;
+  // id чата — uuid-строка, используем как есть
+  const activeChatId = chatId ?? null;
   const loadChats = useChatStore((s) => s.loadChats);
 
   useSocket();

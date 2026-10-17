@@ -20,9 +20,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # Без $${VAR}: Coolify ломает такое экранирование при переписывании compose, и проверка всегда падает.
-    # pg_isready проверяет только, что сервер принимает подключения, имя пользователя и базы ему не нужны
+    # ${VAR} подставляется при разборе compose. Без -U pg_isready ходит под пользователем ОС (root),
+    # и Postgres каждые 5 секунд пишет в лог FATAL: role "root" does not exist
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10

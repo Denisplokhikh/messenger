@@ -20,14 +20,14 @@ async def create_or_get_direct_chat(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    if payload.recipient_id == current_user.id:
+    if payload.recipient_id == current_user.uuid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot create direct chat with yourself",
         )
 
-    # Check recipient exists
-    rec_res = await db.execute(select(User).where(User.id == payload.recipient_id))
+    # Check recipient exists. Клиент присылает публичный uuid, дальше работаем с внутренним id
+    rec_res = await db.execute(select(User).where(User.uuid == payload.recipient_id))
     recipient = rec_res.scalar_one_or_none()
     if not recipient:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recipient not found")
@@ -37,7 +37,7 @@ async def create_or_get_direct_chat(
         select(Chat)
         .join(ChatParticipant)
         .where(Chat.is_group == False)  # noqa: E712
-        .where(ChatParticipant.user_id.in_([current_user.id, payload.recipient_id]))
+        .where(ChatParticipant.user_id.in_([current_user.id, recipient.id]))
         .group_by(Chat.id)
         .having(func.count(ChatParticipant.id) == 2)
         .options(
@@ -56,7 +56,7 @@ async def create_or_get_direct_chat(
     await db.flush()
 
     p1 = ChatParticipant(chat_id=new_chat.id, user_id=current_user.id)
-    p2 = ChatParticipant(chat_id=new_chat.id, user_id=payload.recipient_id)
+    p2 = ChatParticipant(chat_id=new_chat.id, user_id=recipient.id)
     db.add_all([p1, p2])
     await db.commit()
 
@@ -76,7 +76,12 @@ async def create_group_chat(
     current_user: Annotated[User, Depends(get_current_active_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    all_member_ids = set(payload.participant_ids)
+    # Переводим публичные uuid во внутренние id. Если кого-то нет — 404, а не падение на внешнем ключе
+    member_uuids = set(payload.participant_ids)
+    res = await db.execute(select(User.id).where(User.uuid.in_(member_uuids)))
+    all_member_ids = set(res.scalars().all())
+    if len(all_member_ids) != len(member_uuids):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Participant not found")
     all_member_ids.add(current_user.id)
 
     if len(all_member_ids) < 2:
@@ -127,7 +132,7 @@ async def get_my_chats(
         .where(Message.chat_id.in_([chat.id for chat in chats]))
         .distinct(Message.chat_id)
         .order_by(Message.chat_id, Message.id.desc())
-        .options(selectinload(Message.sender))
+        .options(selectinload(Message.sender), selectinload(Message.chat))
     )
     result = await db.execute(stmt)
     last_msgs = result.scalars().all() 

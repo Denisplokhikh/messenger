@@ -119,4 +119,8 @@ jobs:
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         # Блочный скаляр: иначе ": " внутри "Authorization: Bearer" YAML принимает за ключ
         run: |
+          if [ -z "$COOLIFY_WEBHOOK" ] || [ -z "$COOLIFY_TOKEN" ]; then
+            echo "::error::Не заданы секреты COOLIFY_WEBHOOK / COOLIFY_TOKEN (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
           curl --fail-with-body -sS "$COOLIFY_WEBHOOK" -H "Authorization: Bearer $COOLIFY_TOKEN"

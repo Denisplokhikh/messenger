@@ -1,0 +1,122 @@
+name: CI/CD
+
+# Push в master: тесты → деплой. PR: только проверки, без деплоя.
+# Push в другие ветки не запускает CI отдельно — он и так прогонится на PR
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    # Тесты ходят в настоящий Postgres, поэтому поднимаем его рядом с job
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: messenger_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    # app/config.py читает настройки из переменных окружения
+    env:
+      POSTGRES_SERVER: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: messenger_test
+      SECRET_KEY: ci-only-secret-key
+      # Одноразовый ключ только для тестовой базы в CI, к реальным данным отношения не имеет
+      MESSAGE_ENCRYPTION_KEY: _MePLHMcofVsyY8iVAzVeYDc9_8MQ65VEH5p3b8iIDM=
+      DEBUG: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # uv сам скачает Python из requires-python в pyproject.toml
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.1"
+          enable-cache: true
+
+      # --frozen: упадёт, если uv.lock не совпадает с pyproject.toml (забыли uv lock)
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      # Таблицы создаются миграциями, без этого шага тестам негде хранить данные
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+
+      - name: Run tests
+        run: uv run pytest -v
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+  # Проверяем, что образ собирается, до того как его начнёт собирать Coolify
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Coolify сам клонирует репозиторий и собирает образ, мы только даём команду.
+  # Auto Deploy в Coolify должен быть выключен, иначе деплой пойдёт до окончания тестов
+  deploy:
+    needs: [tests, frontend, docker]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: production
+    # Два деплоя одновременно не запускаем, но и начатый не отменяем
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - name: Trigger Coolify deploy
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
+        # Блочный скаляр: иначе ": " внутри "Authorization: Bearer" YAML принимает за ключ
+        run: |
+          curl --fail-with-body -sS "$COOLIFY_WEBHOOK" -H "Authorization: Bearer $COOLIFY_TOKEN"

@@ -1,8 +1,27 @@
+# Окружения и кеши
 venv/
+.venv/
 __pycache__/
 *.pyc
-.git/
-.env
 .pytest_cache/
 frontend/node_modules/
 frontend/dist/
+
+# Секреты: в контейнер попадают только через переменные окружения
+.env
+.env.*
+
+# Не нужно в образе: тесты, CI, редактор, докер-конфиги, документация
+.git/
+.github/
+.vscode/
+.idea/
+tests/
+docker-compose*.yml
+Dockerfile
+.dockerignore
+*.md
+main.py
+
+# Загруженные файлы живут в volume, а не в образе
+media/

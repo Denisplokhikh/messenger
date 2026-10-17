@@ -1,18 +1,23 @@
+# Dev-окружение: docker compose up -d
+# Прод (Coolify) — docker-compose.prod.yml.
+# Креды берутся из .env (compose читает его сам для подстановки ${...}).
+# Порты открыты только на 127.0.0.1, чтобы БД и adminer не торчали в локальную сеть.
+
 services:
   db:
     image: postgres:16-alpine
     container_name: messenger_postgres
-    restart: always
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: messenger_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-messenger_db}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -21,7 +26,7 @@ services:
   backend:
     build: .
     container_name: messenger_backend
-    restart: always
+    restart: unless-stopped
     env_file:
       - .env
     environment:
@@ -40,28 +45,17 @@ services:
       # Аватарки и прочие загрузки переживают пересборку контейнера
       - media_data:/app/media
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       db:
         condition: service_healthy
 
-  nginx:
-    image: nginx:alpine
-    container_name: messenger_nginx
-    restart: always
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - backend
-
   adminer:
     image: adminer:latest
     container_name: messenger_adminer
-    restart: always
+    restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       ADMINER_DEFAULT_SERVER: db
     depends_on:

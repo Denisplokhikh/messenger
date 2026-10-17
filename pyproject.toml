@@ -1,0 +1,39 @@
+[project]
+name = "messenger"
+version = "1.0.0"
+description = "Real-time Messenger Backend with FastAPI, PostgreSQL and WebSockets"
+readme = "README.md"
+requires-python = ">=3.13"
+# Только прямые зависимости. Точные версии всех пакетов (включая транзитивные) лежат в uv.lock
+dependencies = [
+    "alembic>=1.20.0",
+    "asyncpg>=0.32.0",
+    "bcrypt>=5.0.0",
+    "cryptography>=50.0.2",
+    "email-validator>=2.3.0",
+    "fastapi>=0.143.0",
+    "pillow>=12.3.0",
+    "pydantic-settings>=2.15.0",
+    "pyjwt>=2.15.1",
+    "python-multipart>=0.0.32",
+    "slowapi>=0.1.10",
+    "sqlalchemy[asyncio]>=2.1.4",
+    # standard = httptools, websockets, watchfiles (для --reload), uvloop
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[tool.uv]
+# Это приложение, а не библиотека: ставим только зависимости, сам проект как пакет не собираем
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]

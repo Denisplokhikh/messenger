@@ -6,40 +6,61 @@
 
 ##  Быстрый старт
 
-### 1. Клонирование и настройка окружения
-Создайте и активируйте виртуальное окружение:
+### 1. Зависимости (uv)
+Зависимости описаны в `pyproject.toml`, точные версии зафиксированы в `uv.lock`. Нужен [uv](https://docs.astral.sh/uv/):
 
 ```bash
 # Windows (PowerShell)
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 # Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Установите зависимости:
 ```bash
-pip install -r requirements.txt
+uv sync                     # создаёт .venv и ставит всё, включая dev-группу (pytest, httpx)
+uv run pytest -v            # тесты (нужен запущенный Postgres, см. ниже)
+uv add <пакет>              # новая зависимость → обновит pyproject.toml и uv.lock
+uv add --dev <пакет>        # dev-зависимость
 ```
+
+После ручной правки `pyproject.toml` выполните `uv lock` и закоммитьте `uv.lock` — CI ставит зависимости с `--frozen` и упадёт, если lock-файл устарел.
 
 ---
 
-### 2. Запуск через Docker
+### 2. Запуск через Docker (dev)
 
 ```bash
-docker compose up -d
+cp .env.example .env        # и заполните MESSAGE_ENCRYPTION_KEY
+docker compose up -d --build
 ```
-База данных `messenger_db` запустится на `localhost:5432` с пользователем `postgres` и паролем `postgres`.
 
-Параметры подключения заданы в файле `.env`.
+- Приложение: **http://127.0.0.1:8000** (код из `./app` подхватывается без пересборки, `--reload`)
+- Swagger UI: **http://127.0.0.1:8000/docs**, ReDoc: **http://127.0.0.1:8000/redoc**
+- Adminer: **http://127.0.0.1:8080** (сервер `db`)
+- Postgres: `127.0.0.1:5432`, креды из `.env`
+
+Все порты слушают только `127.0.0.1`.
 
 ---
 
-Приложение будет доступно по адресу: **http://127.0.0.1:8000**
-- Интерактивная документация Swagger UI: **http://127.0.0.1:8000/docs**
-- Альтернативная документация ReDoc: **http://127.0.0.1:8000/redoc**
+### 3. Продакшн (Coolify) и CI/CD
+
+Прод описан в `docker-compose.prod.yml`: `db` + `backend`, порты наружу не открыты, HTTPS и WebSocket проксирует Coolify.
+
+Настройка ресурса в Coolify:
+1. New Resource → репозиторий → Build Pack **Docker Compose**, файл `/docker-compose.prod.yml`.
+2. У сервиса `backend` указать домен с портом: `https://chat.example.com:8000`.
+3. Environment Variables: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `SECRET_KEY`, `MESSAGE_ENCRYPTION_KEY` (без них деплой упадёт сразу).
+4. **Выключить Auto Deploy** — деплой запускает GitHub Actions после тестов.
+5. Включить бэкапы Postgres. Копию `MESSAGE_ENCRYPTION_KEY` хранить отдельно: без неё бэкап бесполезен.
+
+Пайплайн `.github/workflows/ci.yml`:
+- на PR и push в `master`: backend-тесты, lint + build фронтенда, сборка Docker-образа;
+- на push в `master` после зелёных проверок — job `deploy` вызывает deploy-webhook Coolify.
+
+Секреты репозитория (Settings → Secrets and variables → Actions, environment `production`):
+- `COOLIFY_WEBHOOK` — Coolify → ресурс → Webhooks → Deploy Webhook;
+- `COOLIFY_TOKEN` — Coolify → Keys & Tokens → API token с правом deploy.
 
 ---
 

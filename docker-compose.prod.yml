@@ -2,8 +2,11 @@
 # Отличия от docker-compose.yml (dev):
 #   - код запечён в образ: без --reload и без монтирования ./app
 #   - наружу не открыт ни один порт: HTTPS и WebSocket проксирует Coolify (Traefik)
-#   - нет nginx и adminer
+#   - нет adminer
 #   - секреты только из переменных окружения, без дефолтов: забыл переменную — деплой упадёт сразу
+#
+# В Coolify: Build Pack = Docker Compose, файл /docker-compose.prod.yml,
+# домен задаётся у сервиса backend с портом: https://chat.example.com:8000
 
 services:
   db:
@@ -28,6 +31,7 @@ services:
     build: .
     restart: unless-stopped
     environment:
+      PROJECT_NAME: ${PROJECT_NAME:-FastAPI Messenger}
       DEBUG: "false"
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
@@ -35,6 +39,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      ALGORITHM: ${ALGORITHM:-HS256}
       MESSAGE_ENCRYPTION_KEY: ${MESSAGE_ENCRYPTION_KEY:?MESSAGE_ENCRYPTION_KEY is required}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
     # Порт виден только внутри docker-сети, снаружи запросы приходят через прокси Coolify.
@@ -44,13 +49,7 @@ services:
     volumes:
       # Аватарки переживают пересборку и редеплой
       - media_data:/app/media
-    # В slim-образе нет curl, проверяем через стандартную библиотеку Python
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    # healthcheck задан в Dockerfile (HEALTHCHECK)
     depends_on:
       db:
         condition: service_healthy

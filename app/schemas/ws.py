@@ -49,6 +49,11 @@ class WSSendMessageAction(WSBaseAction):
             raise ValueError("Сообшение не должно быть пустым")
         return v
 
+class WSTypingAction(WSBaseAction):
+    """Клиент сообщает, что набирает текст. Шлёт не чаще раза в несколько секунд, пока печатает."""
+    action: Literal["typing"] = "typing"
+    chat_id: uuid.UUID
+
 class WSConnectionAck(BaseModel):
     event: str = "connected"
     type: str = "connection_ack"
@@ -68,6 +73,13 @@ class WSMessagePayload(BaseModel):
     sender_username: str
     content: str
     created_at: datetime.datetime
+
+class WSTypingEvent(BaseModel):
+    # События «перестал печатать» нет: клиент сам гасит индикатор, если новых typing долго не было
+    event: str = "typing"
+    chat_id: uuid.UUID
+    user_id: uuid.UUID
+    username: str
 
 class WSNewMessageEvent(BaseModel):
     event: str = "new_message"

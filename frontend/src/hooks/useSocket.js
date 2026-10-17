@@ -8,6 +8,7 @@ export function useSocket() {
   useEffect(() => {
     connectSocket({
       onMessage: (msg) => useChatStore.getState().addMessage(msg),
+      onTyping: (event) => useChatStore.getState().setTyping(event),
     });
     return () => disconnectSocket();
   }, []);

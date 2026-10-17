@@ -18,6 +18,7 @@ from app.schemas.ws import (
     WSPingAction,
     WSPongResponse,
     WSSendMessageAction,
+    WSTypingAction,
 )
 from app.services.connection_manager import manager
 from app.services.message_service import MessageService
@@ -105,6 +106,21 @@ async def websocket_endpoint(
                             sender=user,
                             content=msg_action.content,
                         )
+                    except HTTPException as e:
+                        err = WSErrorResponse(error=e.detail)
+                        await websocket.send_text(err.model_dump_json())
+
+            elif base.action == "typing":
+                try:
+                    typing_action = WSTypingAction.model_validate_json(raw_data)
+                except ValidationError:
+                    err = WSErrorResponse(error="Invalid typing action")
+                    await websocket.send_text(err.model_dump_json())
+                    continue
+
+                async with AsyncSessionLocal() as session:
+                    try:
+                        await MessageService(session).notify_typing(typing_action.chat_id, user)
                     except HTTPException as e:
                         err = WSErrorResponse(error=e.detail)
                         await websocket.send_text(err.model_dump_json())

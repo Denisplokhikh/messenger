@@ -42,6 +42,11 @@ export function connectSocket(newHandlers) {
 
     if (data.event === "new_message" && data.message) {
       handlers?.onMessage?.(data.message);
+      return;
+    }
+
+    if (data.event === "typing") {
+      handlers?.onTyping?.(data);
     }
   };
 
@@ -58,6 +63,14 @@ export function connectSocket(newHandlers) {
     const current = handlers;
     reconnectTimer = setTimeout(() => connectSocket(current), RECONNECT_DELAY);
   };
+}
+
+// Отправка через уже открытый сокет. Если соединения сейчас нет — молча пропускаем:
+// для «печатает…» потерять событие не страшно
+export function sendSocket(data) {
+  if (socket?.readyState !== WebSocket.OPEN) return false;
+  socket.send(JSON.stringify(data));
+  return true;
 }
 
 export function disconnectSocket() {

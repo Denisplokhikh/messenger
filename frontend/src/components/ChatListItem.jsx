@@ -1,12 +1,15 @@
 import { Link } from "react-router-dom";
-import { getChatInfo } from "../lib/chat";
+import { getChatInfo, getTypingLabel } from "../lib/chat";
 import { formatChatTime } from "../lib/format";
+import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
 
 export default function ChatListItem({ chat, myId, active }) {
   const info = getChatInfo(chat, myId);
   const last = chat.last_message;
   const preview = last ? `${last.sender_id === myId ? "Вы: " : ""}${last.content}` : "Нет сообщений";
+  const typing = useChatStore((s) => s.typingByChat[chat.id]);
+  const typingLabel = getTypingLabel(typing, info.isGroup);
 
   return (
     <Link
@@ -24,7 +27,11 @@ export default function ChatListItem({ chat, myId, active }) {
             <span className="shrink-0 font-mono text-[11px] text-zinc-500">{formatChatTime(last.created_at)}</span>
           )}
         </div>
-        <p className="truncate text-xs text-zinc-500">{preview}</p>
+        {typingLabel ? (
+          <p className="truncate text-xs text-accent">{typingLabel}</p>
+        ) : (
+          <p className="truncate text-xs text-zinc-500">{preview}</p>
+        )}
       </div>
     </Link>
   );

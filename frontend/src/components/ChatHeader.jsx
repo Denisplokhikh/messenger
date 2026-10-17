@@ -1,10 +1,13 @@
 import { Link } from "react-router-dom";
-import { getChatInfo } from "../lib/chat";
+import { getChatInfo, getTypingLabel } from "../lib/chat";
+import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
 import { ArrowLeftIcon } from "./icons";
 
 export default function ChatHeader({ chat, myId }) {
   const info = getChatInfo(chat, myId);
+  const typing = useChatStore((s) => s.typingByChat[chat.id]);
+  const typingLabel = getTypingLabel(typing, info.isGroup);
   const profileLink = info.otherUserId ? `/profile/${info.otherUserId}` : null;
 
   const identity = (
@@ -12,7 +15,11 @@ export default function ChatHeader({ chat, myId }) {
       <Avatar src={info.avatarUrl} seed={info.avatarSeed} size={32} />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold leading-tight">{info.title}</div>
-        <div className="truncate font-mono text-[11px] leading-tight text-zinc-500">{info.subtitle}</div>
+        {typingLabel ? (
+          <div className="truncate font-mono text-[11px] leading-tight text-accent">{typingLabel}</div>
+        ) : (
+          <div className="truncate font-mono text-[11px] leading-tight text-zinc-500">{info.subtitle}</div>
+        )}
       </div>
     </>
   );

@@ -138,3 +138,41 @@ def test_ws_oversized_message_rejected():
     # Проверяем схему напрямую: через настоящий сокет тест с этим багом зависает навсегда
     with pytest.raises(ValidationError):
         WSSendMessageAction(chat_id=1, content="a" * 1001)
+
+
+# ---------- «Печатает…» ----------
+
+def test_typing_delivered_to_recipient(sync_client: TestClient):
+    sender = register_and_login(sync_client)
+    recipient = register_and_login(sync_client)
+    chat_id = create_chat(sync_client, sender, recipient)
+
+    with sync_client.websocket_connect("/api/v1/ws") as ws_recipient, \
+            sync_client.websocket_connect("/api/v1/ws") as ws_sender:
+        authenticate(ws_recipient, recipient["token"])
+        authenticate(ws_sender, sender["token"])
+
+        ws_sender.send_text(json.dumps({"action": "typing", "chat_id": chat_id}))
+        event = json.loads(ws_recipient.receive_text())
+        assert event == {
+            "event": "typing",
+            "chat_id": chat_id,
+            "user_id": sender["id"],
+            "username": event["username"],
+        }
+
+        # Самому себе typing не приходит: следующим в сокете отправителя будет pong
+        ws_sender.send_text(json.dumps({"action": "ping"}))
+        assert json.loads(ws_sender.receive_text())["event"] == "pong"
+
+
+def test_typing_in_foreign_chat_rejected(sync_client: TestClient):
+    user1 = register_and_login(sync_client)
+    user2 = register_and_login(sync_client)
+    outsider = register_and_login(sync_client)
+    chat_id = create_chat(sync_client, user1, user2)
+
+    with sync_client.websocket_connect("/api/v1/ws") as ws:
+        authenticate(ws, outsider["token"])
+        ws.send_text(json.dumps({"action": "typing", "chat_id": chat_id}))
+        assert json.loads(ws.receive_text()) == {"error": "Chat not found or access denied"}

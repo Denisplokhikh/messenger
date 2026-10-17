@@ -4,6 +4,11 @@ import { splitTextIntoChunks } from "../lib/format";
 import { toast } from "./toast";
 
 export const PAGE_SIZE = 30;
+// Сколько держим «печатает…» после последнего события typing. Клиент шлёт typing раз в
+// TYPING_THROTTLE (Composer), поэтому TTL с запасом больше, чтобы индикатор не мигал
+export const TYPING_THROTTLE = 500;
+const TYPING_TTL = 3000;
+const typingTimers = {}; // { "chatId:userId": timeoutId }
 
 let draftSeq = 0;
 // Цепочка промисов на каждый чат: POST-запросы уходят строго по очереди, порядок сообщений сохраняется
@@ -43,6 +48,7 @@ const initialState = {
   chatsLoaded: false,
   messagesByChat: {}, // { [chatId]: Message[] } — от старых к новым
   hasMoreByChat: {}, // { [chatId]: boolean } — есть ли ещё история выше
+  typingByChat: {}, // { [chatId]: { [userId]: username } } — кто сейчас печатает
 };
 
 export const useChatStore = create((set, get) => ({
@@ -85,10 +91,33 @@ export const useChatStore = create((set, get) => ({
     });
   },
 
+  setTyping({ chat_id: chatId, user_id: userId, username }) {
+    const key = `${chatId}:${userId}`;
+    clearTimeout(typingTimers[key]);
+    typingTimers[key] = setTimeout(() => get().clearTyping(chatId, userId), TYPING_TTL);
+    set((s) => ({
+      typingByChat: { ...s.typingByChat, [chatId]: { ...s.typingByChat[chatId], [userId]: username } },
+    }));
+  },
+
+  clearTyping(chatId, userId) {
+    const key = `${chatId}:${userId}`;
+    clearTimeout(typingTimers[key]);
+    delete typingTimers[key];
+    if (!get().typingByChat[chatId]?.[userId]) return;
+    set((s) => {
+      const { [userId]: _removed, ...rest } = s.typingByChat[chatId];
+      return { typingByChat: { ...s.typingByChat, [chatId]: rest } };
+    });
+  },
+
   // Общая точка для сообщений из WebSocket и из ответа на отправку (дедуп по id)
   addMessage(msg) {
     const { chats, messagesByChat } = get();
     const chatId = msg.chat_id;
+
+    // Пришло сообщение — значит, автор уже допечатал
+    get().clearTyping(chatId, msg.sender_id);
 
     const list = messagesByChat[chatId];
     if (list?.some((m) => m.id === msg.id)) return;

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useChatStore } from "../store/chats";
+import { sendSocket } from "../api/socket";
+import { TYPING_THROTTLE, useChatStore } from "../store/chats";
 import { SendIcon } from "./icons";
 
 const MAX_HEIGHT = 160;
@@ -8,10 +9,24 @@ export default function Composer({ chatId, myId }) {
   const sendMessage = useChatStore((s) => s.sendMessage);
   const [text, setText] = useState("");
   const textareaRef = useRef(null);
+  const lastTypingSentRef = useRef(0);
 
   useEffect(() => {
     textareaRef.current?.focus();
+    lastTypingSentRef.current = 0;
   }, [chatId]);
+
+  // Пока печатаем, раз в TYPING_THROTTLE сообщаем собеседнику. Чаще не нужно: у него индикатор живёт дольше
+  function notifyTyping() {
+    const now = Date.now();
+    if (now - lastTypingSentRef.current < TYPING_THROTTLE) return;
+    if (sendSocket({ action: "typing", chat_id: chatId })) lastTypingSentRef.current = now;
+  }
+
+  function handleChange(e) {
+    setText(e.target.value);
+    if (e.target.value.trim()) notifyTyping();
+  }
 
   // Высота поля растёт вместе с текстом до MAX_HEIGHT
   useEffect(() => {
@@ -28,6 +43,8 @@ export default function Composer({ chatId, myId }) {
     // Если отправка не удастся, у сообщения появятся кнопки «Повторить» и «Удалить».
     sendMessage(chatId, content, myId);
     setText("");
+    // Следующее же нажатие после отправки снова покажет «печатает…»
+    lastTypingSentRef.current = 0;
     textareaRef.current?.focus();
   }
 
@@ -52,7 +69,7 @@ export default function Composer({ chatId, myId }) {
           ref={textareaRef}
           rows={1}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Сообщение"
           className="max-h-40 min-h-7 flex-1 resize-none bg-transparent py-1 text-sm leading-5 placeholder:text-zinc-400 focus:outline-none dark:placeholder:text-zinc-600"

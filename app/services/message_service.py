@@ -12,7 +12,7 @@ from app.models.message import Message
 from app.models.user import User
 from app.services.connection_manager import manager
 
-from app.schemas.ws import WSMessagePayload, WSNewMessageEvent
+from app.schemas.ws import WSMessagePayload, WSNewMessageEvent, WSTypingEvent
 
 class MessageService:
     def __init__(self, db: AsyncSession):
@@ -35,6 +35,15 @@ class MessageService:
                 detail="Chat not found or access denied",
             )
         return chat
+
+    async def _participant_uuids(self, chat_id: int) -> list[uuid.UUID]:
+        """Публичные uuid всех участников чата — по ним менеджер находит сокеты для рассылки."""
+        stmt = (
+            select(User.uuid)
+            .join(ChatParticipant, ChatParticipant.user_id == User.id)
+            .where(ChatParticipant.chat_id == chat_id)
+        )
+        return list((await self.db.execute(stmt)).scalars().all())
 
     async def get_chat_messages(
         self, chat_uuid: uuid.UUID, user_id: int, limit: int = 50, before_id: int | None = None,
@@ -59,12 +68,7 @@ class MessageService:
     ) -> Message:
         # 1. Проверяем, что пользователь состоит в чате, и получаем uuid всех участников для рассылки
         chat = await self._get_chat_for_participant(chat_uuid, sender.id)
-        stmt = (
-            select(User.uuid)
-            .join(ChatParticipant, ChatParticipant.user_id == User.id)
-            .where(ChatParticipant.chat_id == chat.id)
-        )
-        participant_uuids = (await self.db.execute(stmt)).scalars().all()
+        participant_uuids = await self._participant_uuids(chat.id)
 
         # 2. Создаем сообщение
         message = Message(chat_id=chat.id, sender_id=sender.id, content=content)
@@ -95,6 +99,13 @@ class MessageService:
         )
         await manager.broadcast_to_users(event.model_dump(mode="json"), recipient_uuids)
         return message
+
+    async def notify_typing(self, chat_uuid: uuid.UUID, user: User) -> None:
+        """Рассылает остальным участникам чата, что user сейчас печатает. В базу ничего не пишется."""
+        chat = await self._get_chat_for_participant(chat_uuid, user.id)
+        recipient_uuids = [u for u in await self._participant_uuids(chat.id) if u != user.uuid]
+        event = WSTypingEvent(chat_id=chat_uuid, user_id=user.uuid, username=user.username)
+        await manager.broadcast_to_users(event.model_dump(mode="json"), recipient_uuids)
 
 
 async def get_message_service(

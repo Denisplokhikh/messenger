@@ -1,3 +1,4 @@
+from sqlalchemy import text as sql_text
 from httpx import AsyncClient
 
 
@@ -148,3 +149,22 @@ async def test_messages_pagination_order(client: AsyncClient, create_user, creat
     cursor = older.json()[0]["id"]
     empty = await client.get(url, params={"limit": 2, "before_id": cursor}, headers=user1["headers"])
     assert empty.json() == []
+
+
+async def test_message_content_encrypted_in_db(client: AsyncClient, create_user, create_direct_chat, db_session):
+    # Через API текст обычный, а в самой таблице должен лежать шифротекст
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+
+    send = await client.post(
+        f"/api/v1/chats/{chat_id}/messages", json={"content": "секретное сообщение"}, headers=user1["headers"]
+    )
+    assert send.json()["content"] == "секретное сообщение"
+
+    raw = await db_session.execute(
+        sql_text("SELECT content FROM messages WHERE id = :id"), {"id": send.json()["id"]}
+    )
+    stored = raw.scalar_one()
+    assert "секретное" not in stored
+    assert stored.startswith("gAAAA")  # так начинается любой токен Fernet

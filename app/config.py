@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
 
+    # Ключ Fernet для шифрования сообщений в БД. Дефолта нет специально:
+    # без ключа приложение не стартует, а потеря ключа = потеря всех сообщений.
+    MESSAGE_ENCRYPTION_KEY: str
+
     # Загруженные пользователями файлы (аватарки), раздаются по /media
     MEDIA_DIR: Path = Path(__file__).resolve().parent.parent / "media"
 

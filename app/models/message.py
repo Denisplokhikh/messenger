@@ -5,12 +5,12 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
-    String,
     func,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+from app.models.types import EncryptedText
 
 
 class Message(Base):
@@ -26,8 +26,9 @@ class Message(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
 
-    # VARCHAR(1000) на уровне Postgres
-    content: Mapped[str] = mapped_column(String(1000), nullable=False)
+    # Хранится зашифрованным, см. EncryptedText. Длину ограничивает схема (MessageContent),
+    # а не колонка: шифротекст заметно длиннее исходного текста.
+    content: Mapped[str] = mapped_column(EncryptedText, nullable=False)
 
     # Дефолт на уровне и Python, и самой базы
     is_read: Mapped[bool] = mapped_column(

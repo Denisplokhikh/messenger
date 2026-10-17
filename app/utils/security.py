@@ -2,8 +2,20 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 import bcrypt
 import jwt
+from cryptography.fernet import Fernet
 
 from app.config import settings
+
+# Создаётся при импорте: неверный ключ в .env сразу роняет старт приложения
+_fernet = Fernet(settings.MESSAGE_ENCRYPTION_KEY)
+
+
+def encrypt_text(plain: str) -> str:
+    return _fernet.encrypt(plain.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_text(token: str) -> str:
+    return _fernet.decrypt(token.encode("utf-8")).decode("utf-8")
 
 
 def get_password_hash(password: str) -> str:

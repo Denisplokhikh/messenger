@@ -15,8 +15,10 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Без $${VAR}: Coolify ломает такое экранирование при переписывании compose, и проверка всегда падает.
+    # pg_isready проверяет только, что сервер принимает подключения, имя пользователя и базы ему не нужны
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1"]
       interval: 5s
       timeout: 5s
       retries: 10

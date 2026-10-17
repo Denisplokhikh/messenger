@@ -1,6 +1,6 @@
 import datetime
 from pydantic import BaseModel, ConfigDict
-from app.schemas.user import UserResponse
+from app.schemas.user import UserPublicResponse, UserResponse
 from app.schemas.message import MessageResponse
 
 
@@ -21,7 +21,7 @@ class ChatCreateGroup(BaseModel):
 class ChatParticipantResponse(BaseModel):
     user_id: int
     joined_at: datetime.datetime
-    user: UserResponse
+    user: UserPublicResponse
 
     model_config = ConfigDict(from_attributes=True)
 

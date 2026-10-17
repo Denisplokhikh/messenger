@@ -3,7 +3,8 @@
 #   - код запечён в образ: без --reload и без монтирования ./app
 #   - наружу не открыт ни один порт: HTTPS и WebSocket проксирует Coolify (Traefik)
 #   - нет adminer
-#   - секреты только из переменных окружения, без дефолтов: забыл переменную — деплой упадёт сразу
+#   - секреты только из переменных окружения, без дефолтов: забыл переменную — деплой упадёт сразу.
+#     Только ${VAR:?} без текста: ${VAR:?сообщение} Coolify подставляет как значение переменной
 #
 # В Coolify: Build Pack = Docker Compose, файл /docker-compose.prod.yml,
 # домен задаётся у сервиса backend с портом: https://chat.example.com:8000
@@ -13,9 +14,9 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # Без $${VAR}: Coolify ломает такое экранирование при переписывании compose, и проверка всегда падает.
@@ -38,9 +39,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      SECRET_KEY: ${SECRET_KEY:?}
       ALGORITHM: ${ALGORITHM:-HS256}
-      MESSAGE_ENCRYPTION_KEY: ${MESSAGE_ENCRYPTION_KEY:?MESSAGE_ENCRYPTION_KEY is required}
+      MESSAGE_ENCRYPTION_KEY: ${MESSAGE_ENCRYPTION_KEY:?}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
     # Порт виден только внутри docker-сети, снаружи запросы приходят через прокси Coolify.
     # Поэтому --forwarded-allow-ips * из Dockerfile здесь безопасен: подделать X-Forwarded-For в обход прокси нельзя

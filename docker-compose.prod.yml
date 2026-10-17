@@ -1,0 +1,58 @@
+# Продакшн-конфигурация (Coolify или любой сервер за reverse proxy).
+# Отличия от docker-compose.yml (dev):
+#   - код запечён в образ: без --reload и без монтирования ./app
+#   - наружу не открыт ни один порт: HTTPS и WebSocket проксирует Coolify (Traefik)
+#   - нет nginx и adminer
+#   - секреты только из переменных окружения, без дефолтов: забыл переменную — деплой упадёт сразу
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build: .
+    restart: unless-stopped
+    environment:
+      DEBUG: "false"
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY is required}
+      MESSAGE_ENCRYPTION_KEY: ${MESSAGE_ENCRYPTION_KEY:?MESSAGE_ENCRYPTION_KEY is required}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+    # Порт виден только внутри docker-сети, снаружи запросы приходят через прокси Coolify.
+    # Поэтому --forwarded-allow-ips * из Dockerfile здесь безопасен: подделать X-Forwarded-For в обход прокси нельзя
+    expose:
+      - "8000"
+    volumes:
+      # Аватарки переживают пересборку и редеплой
+      - media_data:/app/media
+    # В slim-образе нет curl, проверяем через стандартную библиотеку Python
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  media_data:

@@ -113,6 +113,28 @@ async def delete_profile_picture(
     delete_avatar_file(old_url)
     return current_user
 
+# @router.delete("/me", response_model=UserResponse)
+# @limiter.limit("5/minute")
+# async def delete_profile(
+#     req: ChangePasswordRequest,
+#     current_user: Annotated[User, Depends(get_current_active_user)],
+#     db: Annotated[AsyncSession, Depends(get_db)],
+#     request: Request,
+# ):
+#     # Удаление аккаунта
+#     if not verify_password(req.current_password, current_user.hashed_password):
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Неверный текущий пароль",
+#             )
+    
+    
+    
+        
+        
+        
+    
+    
 
 @router.patch("/me", response_model=UserResponse)
 @limiter.limit("5/minute")
@@ -168,7 +190,8 @@ async def change_password(
     db: Annotated[AsyncSession, Depends(get_db)],
     request: Request,
 ):
-    if not verify_password(req.current_password, current_user.hashed_password):
+    if not await run_in_threadpool(
+        verify_password, req.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Неверный текущий пароль",
@@ -178,7 +201,7 @@ async def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Новый пароль должен содержать минимум 6 символов",
         )
-    current_user.hashed_password = get_password_hash(req.new_password)
+    current_user.hashed_password = await run_in_threadpool(get_password_hash, req.new_password)
     await db.commit()
     return {"message": "Пароль успешно изменен"}
 

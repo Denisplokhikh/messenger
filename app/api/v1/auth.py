@@ -1,5 +1,6 @@
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +33,7 @@ async def register(user_in: UserCreate, db: Annotated[AsyncSession, Depends(get_
     user = User(
         username=user_in.username,
         email=user_in.email,
-        hashed_password=get_password_hash(user_in.password),
+        hashed_password=await run_in_threadpool(get_password_hash, user_in.password),
     )
     db.add(user)
     await db.commit()
@@ -54,7 +55,8 @@ async def login_for_access_token(
         )
     )
     user = result.scalar_one_or_none()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if user is None or not await run_in_threadpool(
+        verify_password, form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username/email or password",

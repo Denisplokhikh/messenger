@@ -1,3 +1,4 @@
+import secrets
 import uuid
 from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
@@ -14,6 +15,7 @@ from app.schemas.user import (
     UserResponse,
     UserUpdate,
     UserPublicResponse,
+    VerifyPasswordRequest,
 )
 from app.services.avatar_service import (
     AVATARS_DIR,
@@ -22,6 +24,7 @@ from app.services.avatar_service import (
     delete_avatar_file,
     process_avatar,
 )
+from app.services.connection_manager import manager
 from app.utils.security import get_password_hash, verify_password
 from app.utils.limiter import limiter
 
@@ -113,28 +116,49 @@ async def delete_profile_picture(
     delete_avatar_file(old_url)
     return current_user
 
-# @router.delete("/me", response_model=UserResponse)
-# @limiter.limit("5/minute")
-# async def delete_profile(
-#     req: ChangePasswordRequest,
-#     current_user: Annotated[User, Depends(get_current_active_user)],
-#     db: Annotated[AsyncSession, Depends(get_db)],
-#     request: Request,
-# ):
-#     # Удаление аккаунта
-#     if not verify_password(req.current_password, current_user.hashed_password):
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Неверный текущий пароль",
-#             )
-    
-    
-    
-        
-        
-        
-    
-    
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("5/minute")
+async def delete_profile(
+    req: VerifyPasswordRequest,
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    request: Request,
+):
+    # Мягкое удаление: строка остаётся, чтобы сообщения пользователя не пропали из чужих чатов
+    if not await run_in_threadpool(
+        verify_password, req.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный пароль",
+        )
+
+    # После commit атрибуты протухают, а ленивая загрузка в async-сессии падает — сохраняем заранее
+    user_uuid = current_user.uuid
+    old_avatar_url = current_user.avatar_url
+
+    # Обезличиваем: освобождаем username/email (они unique) и стираем персональные данные
+    current_user.username = f"deleted_{user_uuid.hex[:12]}"
+    current_user.email = f"{user_uuid.hex}@deleted.invalid"
+    current_user.full_name = None
+    current_user.bio = None
+    current_user.avatar_url = None
+    # Случайный пароль, который никто не знает, — войти в аккаунт больше нельзя
+    current_user.hashed_password = await run_in_threadpool(
+        get_password_hash, secrets.token_urlsafe(32))
+    # is_active=False сразу отсекает старые JWT: его проверяют deps, логин и WebSocket
+    current_user.is_active = False
+    current_user.deleted_at = func.now()
+    await db.commit()
+
+    delete_avatar_file(old_avatar_url)
+
+    # Закрываем открытые вкладки; ws.py сам вызовет manager.disconnect на WebSocketDisconnect
+    for websocket in list(manager.active_connections.get(user_uuid, ())):
+        try:
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        except Exception:
+            pass
+
 
 @router.patch("/me", response_model=UserResponse)
 @limiter.limit("5/minute")

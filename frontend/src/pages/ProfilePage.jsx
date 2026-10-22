@@ -4,7 +4,7 @@ import { api } from "../api/client";
 import Avatar from "../components/Avatar";
 import AvatarCropModal from "../components/AvatarCropModal";
 import ThemeToggle from "../components/ThemeToggle";
-import { ArrowLeftIcon, CameraIcon, CopyIcon, LogOutIcon, MessageIcon, TrashIcon } from "../components/icons";
+import { ArrowLeftIcon, CameraIcon, CopyIcon, LogOutIcon, MessageIcon, TrashIcon, XIcon } from "../components/icons";
 import { Button, Field, FullScreenMessage, IconButton, Input, Spinner, inputClass } from "../components/ui";
 import { cropToBlob } from "../lib/cropImage";
 import { useAuthStore } from "../store/auth";
@@ -141,11 +141,12 @@ function WriteButton({ userId }) {
   );
 }
 
-function Section({ title, description, children }) {
+function Section({ title, description, tone, children }) {
+  const border = tone === "danger" ? "border-red-200 dark:border-red-900/60" : "border-zinc-200 dark:border-zinc-800";
   return (
-    <section className="rounded-lg border border-zinc-200 dark:border-zinc-800">
-      <div className="border-b border-zinc-200 px-5 py-3.5 dark:border-zinc-800">
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <section className={`rounded-lg border ${border}`}>
+      <div className={`border-b px-5 py-3.5 ${border}`}>
+        <h2 className={`text-sm font-semibold ${tone === "danger" ? "text-red-600 dark:text-red-400" : ""}`}>{title}</h2>
         {description && <p className="mt-0.5 text-xs text-zinc-500">{description}</p>}
       </div>
       <div className="p-5">{children}</div>
@@ -298,7 +299,102 @@ function MyProfile({ user }) {
           </Button>
         </div>
       </Section>
+
+      <DangerZoneSection />
     </>
+  );
+}
+
+function DangerZoneSection() {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Section tone="danger" title="Опасная зона">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-zinc-500">Аккаунт удалится без возможности восстановления.</p>
+        <Button variant="danger" onClick={() => setOpen(true)}>
+          <TrashIcon size={15} />
+          Удалить аккаунт
+        </Button>
+      </div>
+      {open && <DeleteAccountModal onClose={() => setOpen(false)} />}
+    </Section>
+  );
+}
+
+function DeleteAccountModal({ onClose }) {
+  const logout = useAuthStore((s) => s.logout);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await api.deleteAccount(password);
+      toast.success("Аккаунт удалён");
+      // logout чистит токен, сокет и чаты; без токена роутер сам уведёт на страницу входа
+      logout();
+    } catch (err) {
+      toast.error(err.message);
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-start justify-center bg-zinc-950/40 p-4 pt-[12vh] backdrop-blur-[2px]"
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-account-title"
+        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+      >
+        <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h2 id="delete-account-title" className="text-sm font-semibold text-red-600 dark:text-red-400">
+            Удалить аккаунт?
+          </h2>
+          <IconButton label="Закрыть" onClick={onClose}>
+            <XIcon />
+          </IconButton>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4 p-4">
+          <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-400">
+            <li>Имя, email, описание и фото будут удалены.</li>
+            <li>Ваши сообщения останутся в чатах от имени «Удалённый аккаунт».</li>
+            <li>Восстановить аккаунт будет нельзя.</li>
+          </ul>
+          <Field label="Введите пароль для подтверждения">
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              maxLength={72}
+              autoComplete="current-password"
+              autoFocus
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={onClose} disabled={busy}>
+              Отмена
+            </Button>
+            <Button type="submit" variant="danger" disabled={busy || !password}>
+              Удалить навсегда
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 

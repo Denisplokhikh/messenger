@@ -27,9 +27,14 @@ class UserUpdate(BaseModel):
     # Аватар меняется только через POST/DELETE /users/me/avatar
 
 
-class ChangePasswordRequest(BaseModel):
-    current_password: str
+
+class VerifyPasswordRequest(BaseModel):
+    current_password: str = Field(max_length=72)
+
+
+class ChangePasswordRequest(VerifyPasswordRequest):
     new_password: Password
+
 
 # 1. Публичные данные (видят ВСЕ пользователи, никакого email)
 class UserPublicResponse(BaseModel):

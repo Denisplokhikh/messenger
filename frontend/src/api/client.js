@@ -74,6 +74,12 @@ export const api = {
       body: { current_password: currentPassword, new_password: newPassword },
       error: "Ошибка при смене пароля",
     }),
+  deleteAccount: (currentPassword) =>
+    request("/users/me", {
+      method: "DELETE",
+      body: { current_password: currentPassword },
+      error: "Не удалось удалить аккаунт",
+    }),
 
   getChats: () => request("/chats", { error: "Не удалось загрузить чаты" }),
   createDirectChat: (recipientId) =>

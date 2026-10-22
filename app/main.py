@@ -50,6 +50,9 @@ app = FastAPI(
     version="1.0.0",
     description="Real-time Messenger Backend with FastAPI, PostgreSQL and WebSockets",
     lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    openapi_url="/openapi.json" if settings.DEBUG else None
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

@@ -6,7 +6,7 @@ from typing import AsyncGenerator
 # Загрузки из тестов не должны попадать в настоящую папку media/.
 # Ставим до импорта app: settings читает переменные окружения один раз при импорте.
 os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="messenger-test-media-")
-
+os.environ["ATTACHMENTS_DIR"] = tempfile.mkdtemp(prefix="messenger-test-attachments-")
 import pytest
 from httpx import ASGITransport, AsyncClient
 from fastapi.testclient import TestClient

@@ -45,6 +45,8 @@ services:
       - ./alembic.ini:/app/alembic.ini
       # Аватарки и прочие загрузки переживают пересборку контейнера
       - media_data:/app/media
+      # Вложения из чатов: отдельно от media, потому что media раздаётся публично
+      - attachments_data:/app/attachments
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:
@@ -65,3 +67,4 @@ services:
 volumes:
   postgres_data:
   media_data:
+  attachments_data:

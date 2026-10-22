@@ -1,4 +1,5 @@
 from app.database import Base
+from app.models.attachment import Attachment
 from app.models.chat import Chat
 from app.models.chat_participant import ChatParticipant
 from app.models.message import Message
@@ -10,4 +11,5 @@ __all__ = [
     "Chat",
     "ChatParticipant",
     "Message",
+    "Attachment",
 ]

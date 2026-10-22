@@ -33,11 +33,11 @@ RUN uv sync --frozen --no-dev --no-cache
 COPY . .
 COPY --from=frontend /frontend/dist ./frontend/dist
 
-# 7. Запускаемся не от root. Папку media создаём заранее с нужным владельцем:
-# новый docker volume, смонтированный в /app/media, унаследует эти права
+# 7. Запускаемся не от root. Папки media и attachments создаём заранее с нужным владельцем:
+# новый docker volume, смонтированный в них, унаследует эти права
 RUN useradd --create-home --uid 1000 app \
-    && mkdir -p /app/media \
-    && chown -R app:app /app/media
+    && mkdir -p /app/media /app/attachments \
+    && chown -R app:app /app/media /app/attachments
 USER app
 
 # 8. Указываем порт, который слушает приложение

@@ -51,6 +51,8 @@ services:
     volumes:
       # Аватарки переживают пересборку и редеплой
       - media_data:/app/media
+      # Вложения из чатов: отдельно от media, потому что media раздаётся публично
+      - attachments_data:/app/attachments
     # healthcheck задан в Dockerfile (HEALTHCHECK)
     depends_on:
       db:
@@ -59,3 +61,4 @@ services:
 volumes:
   postgres_data:
   media_data:
+  attachments_data:

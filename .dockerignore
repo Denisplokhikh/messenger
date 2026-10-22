@@ -25,3 +25,4 @@ main.py
 
 # Загруженные файлы живут в volume, а не в образе
 media/
+attachments/

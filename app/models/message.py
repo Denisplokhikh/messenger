@@ -28,7 +28,9 @@ class Message(Base):
 
     # Хранится зашифрованным, см. EncryptedText. Длину ограничивает схема (MessageContent),
     # а не колонка: шифротекст заметно длиннее исходного текста.
-    content: Mapped[str] = mapped_column(EncryptedText, nullable=False)
+    # NULL — сообщение из одних вложений. «Текст или вложения» проверяет сервис:
+    # CHECK в базе не видит соседнюю таблицу attachments
+    content: Mapped[str | None] = mapped_column(EncryptedText, nullable=True)
 
     # Дефолт на уровне и Python, и самой базы
     is_read: Mapped[bool] = mapped_column(
@@ -42,6 +44,10 @@ class Message(Base):
     # Relationships
     chat: Mapped["Chat"] = relationship("Chat", back_populates="messages")
     sender: Mapped["User"] = relationship("User", back_populates="messages")
+    # Порядок по id = порядок, в котором пользователь прикрепил файлы
+    attachments: Mapped[list["Attachment"]] = relationship(
+        "Attachment", back_populates="message", order_by="Attachment.id"
+    )
 
     # Составной индекс для мгновенной пагинации истории чата
     __table_args__ = (Index("idx_messages_chat_id", "chat_id", id.desc()),)

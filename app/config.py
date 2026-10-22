@@ -22,9 +22,11 @@ class Settings(BaseSettings):
     # Ключ Fernet для шифрования сообщений в БД. Дефолта нет специально:
     # без ключа приложение не стартует, а потеря ключа = потеря всех сообщений.
     MESSAGE_ENCRYPTION_KEY: str
-
+    MAX_ATTACHMENT_BYTES: int = 50 * 1024 * 1024
+    MAX_ATTACHMENTS_PER_MESSAGE: int = 10
     # Загруженные пользователями файлы (аватарки), раздаются по /media
     MEDIA_DIR: Path = Path(__file__).resolve().parent.parent / "media"
+    ATTACHMENTS_DIR: Path = Path(__file__).resolve().parent.parent / "attachments"
 
     model_config = SettingsConfigDict(
         env_file=".env",

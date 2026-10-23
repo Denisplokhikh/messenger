@@ -83,6 +83,9 @@ async def health_check():
 settings.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/media", StaticFiles(directory=settings.MEDIA_DIR), name="media")
 
+# Вложения из чатов. Специально не монтируем: их отдаёт эндпоинт только участникам чата
+settings.ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
 # Ассеты Vite: в имени файла есть хеш, поэтому их можно кешировать надолго
 if (FRONTEND_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIR / "assets"), name="assets")

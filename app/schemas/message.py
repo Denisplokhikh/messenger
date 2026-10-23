@@ -2,7 +2,7 @@ import datetime
 import uuid
 from typing import Annotated
 from pydantic import AliasPath, BaseModel, ConfigDict, Field
-from app.schemas.user import UserPublicResponse, UserResponse
+from app.schemas.user import UserPublicResponse
 
 MessageContent = Annotated[str, Field(min_length=1, max_length=1000)]
 

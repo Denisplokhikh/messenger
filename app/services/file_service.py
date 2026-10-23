@@ -30,6 +30,8 @@ MAX_FILE_NAME_LENGTH = 255
 DEFAULT_FILE_NAME = "file"
 # Управляющие символы и Unicode-символы смены направления текста (U+202A–U+202E, U+2066–U+2069).
 # Последними подделывают расширение: "invoice‮fdp.exe" отображается как "invoiceexe.pdf"
+
+
 UNSAFE_NAME_CHARS_RE = re.compile(r"[\x00-\x1f\x7f‪-‮⁦-⁩]")
 
 

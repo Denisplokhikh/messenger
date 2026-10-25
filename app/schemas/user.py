@@ -1,7 +1,9 @@
 import datetime
 import uuid
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field
 from typing import Annotated
+
+from app.services.connection_manager import manager
 
 Username = Annotated[str, Field(min_length=3, max_length=20)]
 Password = Annotated[str, Field(min_length=6, max_length=72)]
@@ -45,8 +47,21 @@ class UserPublicResponse(BaseModel):
     bio: str | None = None
     avatar_url: str | None = None
     created_at: datetime.datetime
+    # Когда пользователь последний раз был в сети. NULL — ещё ни разу не заходил
+    last_seen_at: datetime.datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def is_online(self) -> bool:
+        """Онлайн = у пользователя есть открытый WebSocket в этом процессе.
+
+        Проект запускается одним процессом uvicorn, поэтому глобального состояния
+        между репликами не нужно. При переходе на несколько воркеров это придётся
+        вынести в Redis.
+        """
+        return manager.is_online(self.id)
 
 # 5. Приватные данные (видит ТОЛЬКО сам владелец аккаунта в /me)
 class UserResponse(UserPublicResponse):

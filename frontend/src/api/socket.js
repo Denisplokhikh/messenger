@@ -45,6 +45,11 @@ export function connectSocket(newHandlers) {
       return;
     }
 
+    if (data.event === "presence") {
+      handlers?.onPresence?.(data);
+      return;
+    }
+
     if (data.event === "typing") {
       handlers?.onTyping?.(data);
     }

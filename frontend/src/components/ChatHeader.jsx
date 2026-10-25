@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { getChatInfo, getTypingLabel } from "../lib/chat";
+import { formatLastSeen } from "../lib/format";
+import { useNow } from "../hooks/useNow";
+import { usePresence } from "../hooks/usePresence";
 import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
 import GroupInfoModal from "./GroupInfoModal";
@@ -13,16 +16,28 @@ export default function ChatHeader({ chat, myId }) {
   const typing = useChatStore((s) => s.typingByChat[chat.id]);
   const typingLabel = getTypingLabel(typing, info.isGroup);
   const profileLink = info.otherUserId ? `/profile/${info.otherUserId}` : null;
+  const { online, lastSeen } = usePresence(info.otherUser);
+  const now = useNow();
+
+  // В личном чате вместо @username показываем, здесь ли собеседник
+  const subtitle = info.isGroup ? info.subtitle : online ? "в сети" : formatLastSeen(lastSeen, now);
+  const onlineTone = !info.isGroup && online;
 
   const identity = (
     <>
-      <Avatar src={info.avatarUrl} seed={info.avatarSeed} size={32} />
+      <Avatar src={info.avatarUrl} seed={info.avatarSeed} size={32} online={onlineTone} />
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold leading-tight">{info.title}</div>
         {typingLabel ? (
           <div className="truncate font-mono text-[11px] leading-tight text-accent">{typingLabel}</div>
         ) : (
-          <div className="truncate font-mono text-[11px] leading-tight text-zinc-500">{info.subtitle}</div>
+          <div
+            className={`truncate font-mono text-[11px] leading-tight ${
+              onlineTone ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"
+            }`}
+          >
+            {subtitle}
+          </div>
         )}
       </div>
     </>

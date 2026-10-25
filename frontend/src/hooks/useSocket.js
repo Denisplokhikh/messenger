@@ -9,6 +9,7 @@ export function useSocket() {
     connectSocket({
       onMessage: (msg) => useChatStore.getState().addMessage(msg),
       onTyping: (event) => useChatStore.getState().setTyping(event),
+      onPresence: (event) => useChatStore.getState().setPresence(event),
     });
     return () => disconnectSocket();
   }, []);

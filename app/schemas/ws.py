@@ -78,3 +78,10 @@ class WSTypingEvent(BaseModel):
 class WSNewMessageEvent(BaseModel):
     event: str = "new_message"
     message: WSMessagePayload
+
+class WSPresenceEvent(BaseModel):
+    """Пользователь появился в сети или вышел. Рассылается тем, с кем у него есть общие чаты."""
+    event: str = "presence"
+    user_id: uuid.UUID
+    is_online: bool
+    last_seen_at: datetime.datetime

@@ -6,7 +6,10 @@ import AvatarCropModal from "../components/AvatarCropModal";
 import ThemeToggle from "../components/ThemeToggle";
 import { ArrowLeftIcon, CameraIcon, CopyIcon, LogOutIcon, MessageIcon, TrashIcon, XIcon } from "../components/icons";
 import { Button, Field, FullScreenMessage, IconButton, Input, Spinner, inputClass } from "../components/ui";
+import { useNow } from "../hooks/useNow";
+import { usePresence } from "../hooks/usePresence";
 import { cropToBlob } from "../lib/cropImage";
+import { formatLastSeen } from "../lib/format";
 import { useAuthStore } from "../store/auth";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
@@ -76,14 +79,17 @@ export default function ProfilePage() {
         ) : isMe ? (
           <MyProfile user={user} />
         ) : (
-          <ProfileCard user={user} action={<WriteButton userId={user.id} />} />
+          <ProfileCard user={user} action={<WriteButton userId={user.id} />} showPresence />
         )}
       </main>
     </div>
   );
 }
 
-function ProfileCard({ user, avatarAction, action }) {
+function ProfileCard({ user, avatarAction, action, showPresence = false }) {
+  const { online, lastSeen } = usePresence(user);
+  const now = useNow();
+
   function copyUsername() {
     navigator.clipboard
       .writeText(`@${user.username}`)
@@ -98,7 +104,7 @@ function ProfileCard({ user, avatarAction, action }) {
   return (
     <section className="flex flex-col gap-5 sm:flex-row sm:items-start">
       <div className="relative self-start">
-        <Avatar src={user.avatar_url} seed={user.username} size={88} />
+        <Avatar src={user.avatar_url} seed={user.username} size={88} online={showPresence && online} />
         {avatarAction}
       </div>
       <div className="min-w-0 flex-1 space-y-2">
@@ -110,6 +116,15 @@ function ProfileCard({ user, avatarAction, action }) {
           </button>
           {registered && <span>с {registered}</span>}
         </div>
+        {showPresence && (
+          <p
+            className={`font-mono text-xs ${
+              online ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"
+            }`}
+          >
+            {online ? "в сети" : formatLastSeen(lastSeen, now)}
+          </p>
+        )}
         {user.bio && <p className="text-sm whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">{user.bio}</p>}
         {action && <div className="pt-2">{action}</div>}
       </div>

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { getChatInfo, getMessagePreview, getTypingLabel } from "../lib/chat";
 import { formatChatTime } from "../lib/format";
+import { usePresence } from "../hooks/usePresence";
 import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
 
@@ -10,6 +11,7 @@ export default function ChatListItem({ chat, myId, active }) {
   const preview = last ? `${last.sender_id === myId ? "Вы: " : ""}${getMessagePreview(last)}` : "Нет сообщений";
   const typing = useChatStore((s) => s.typingByChat[chat.id]);
   const typingLabel = getTypingLabel(typing, info.isGroup);
+  const { online } = usePresence(info.otherUser);
 
   return (
     <Link
@@ -19,7 +21,7 @@ export default function ChatListItem({ chat, myId, active }) {
       }`}
     >
       {active && <span className="absolute top-2 bottom-2 left-0 w-0.5 rounded-full bg-accent" />}
-      <Avatar src={info.avatarUrl} seed={info.avatarSeed} size={36} />
+      <Avatar src={info.avatarUrl} seed={info.avatarSeed} size={36} online={!info.isGroup && online} />
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate text-sm font-medium">{info.title}</span>

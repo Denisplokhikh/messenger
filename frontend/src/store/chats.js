@@ -53,6 +53,7 @@ const initialState = {
   messagesByChat: {}, // { [chatId]: Message[] } — от старых к новым
   hasMoreByChat: {}, // { [chatId]: boolean } — есть ли ещё история выше
   typingByChat: {}, // { [chatId]: { [userId]: username } } — кто сейчас печатает
+  presenceByUser: {}, // { [userId]: { is_online, last_seen_at } } — живые статусы из WebSocket
 };
 
 export const useChatStore = create((set, get) => ({
@@ -93,6 +94,13 @@ export const useChatStore = create((set, get) => ({
         hasMoreByChat: { ...s.hasMoreByChat, [chatId]: older.length === PAGE_SIZE },
       };
     });
+  },
+
+  // Статус пришёл по WebSocket: он свежее того, что был в ответе API
+  setPresence({ user_id: userId, is_online, last_seen_at }) {
+    set((s) => ({
+      presenceByUser: { ...s.presenceByUser, [userId]: { is_online, last_seen_at } },
+    }));
   },
 
   setTyping({ chat_id: chatId, user_id: userId, username }) {

@@ -39,6 +39,14 @@ def authenticate(ws, token: str) -> None:
     assert ack["event"] == "connected"
 
 
+def next_event(ws, event_type: str) -> dict:
+    """Читает события, пропуская presence: они приходят при подключении собеседника."""
+    while True:
+        data = json.loads(ws.receive_text())
+        if data["event"] == event_type:
+            return data
+
+
 def test_ws_rejects_invalid_token(sync_client: TestClient):
     with sync_client.websocket_connect("/api/v1/ws") as ws:
         ws.send_text(json.dumps({"type": "authenticate", "token": "garbage"}))
@@ -107,8 +115,7 @@ def test_ws_message_delivered_to_both(sync_client: TestClient):
         ws_sender.send_text(json.dumps({"action": "send_message", "chat_id": chat_id, "content": "yo"}))
 
         for ws in (ws_sender, ws_recipient):
-            event = json.loads(ws.receive_text())
-            assert event["event"] == "new_message"
+            event = next_event(ws, "new_message")
             assert event["message"]["content"] == "yo"
 
 
@@ -153,7 +160,7 @@ def test_typing_delivered_to_recipient(sync_client: TestClient):
         authenticate(ws_sender, sender["token"])
 
         ws_sender.send_text(json.dumps({"action": "typing", "chat_id": chat_id}))
-        event = json.loads(ws_recipient.receive_text())
+        event = next_event(ws_recipient, "typing")
         assert event == {
             "event": "typing",
             "chat_id": chat_id,
@@ -176,3 +183,44 @@ def test_typing_in_foreign_chat_rejected(sync_client: TestClient):
         authenticate(ws, outsider["token"])
         ws.send_text(json.dumps({"action": "typing", "chat_id": chat_id}))
         assert json.loads(ws.receive_text()) == {"error": "Chat not found or access denied"}
+
+
+# ---------- «Был(а) в сети» ----------
+
+def test_presence_online_then_offline(sync_client: TestClient):
+    # Собеседник видит, когда пользователь появился и когда ушёл
+    user1 = register_and_login(sync_client)
+    user2 = register_and_login(sync_client)
+    create_chat(sync_client, user1, user2)
+
+    with sync_client.websocket_connect("/api/v1/ws") as ws1:
+        authenticate(ws1, user1["token"])
+
+        with sync_client.websocket_connect("/api/v1/ws") as ws2:
+            authenticate(ws2, user2["token"])
+
+            online = next_event(ws1, "presence")
+            assert online["user_id"] == user2["id"]
+            assert online["is_online"] is True
+
+        offline = next_event(ws1, "presence")
+        assert offline["user_id"] == user2["id"]
+        assert offline["is_online"] is False
+        assert offline["last_seen_at"] is not None
+
+
+def test_last_seen_is_visible_in_public_profile(sync_client: TestClient):
+    user1 = register_and_login(sync_client)
+    user2 = register_and_login(sync_client)
+
+    with sync_client.websocket_connect("/api/v1/ws") as ws:
+        authenticate(ws, user2["token"])
+
+        profile = sync_client.get(f"/api/v1/users/{user2['id']}", headers=user1["headers"])
+        assert profile.status_code == 200
+        assert profile.json()["is_online"] is True
+        assert profile.json()["last_seen_at"] is not None
+
+    profile = sync_client.get(f"/api/v1/users/{user2['id']}", headers=user1["headers"])
+    assert profile.json()["is_online"] is False
+    assert profile.json()["last_seen_at"] is not None

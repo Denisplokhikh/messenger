@@ -1,12 +1,17 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getChatInfo } from "../lib/chat";
+import { formatLastSeen } from "../lib/format";
+import { useNow } from "../hooks/useNow";
+import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
 import { XIcon } from "./icons";
 import { IconButton } from "./ui";
 
 export default function GroupInfoModal({ chat, myId, onClose }) {
   const info = getChatInfo(chat, myId);
+  const presenceByUser = useChatStore((s) => s.presenceByUser);
+  const now = useNow();
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -54,6 +59,9 @@ export default function GroupInfoModal({ chat, myId, onClose }) {
           <ul>
             {participants.map((p) => {
               const isMe = p.user_id === myId;
+              const live = presenceByUser[p.user_id];
+              const online = live?.is_online ?? p.user?.is_online;
+              const lastSeen = live?.last_seen_at ?? p.user?.last_seen_at;
               return (
                 <li key={p.user_id}>
                   <Link
@@ -61,10 +69,18 @@ export default function GroupInfoModal({ chat, myId, onClose }) {
                     onClick={onClose}
                     className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-900"
                   >
-                    <Avatar src={p.user?.avatar_url} seed={p.user?.username} size={36} />
+                    <Avatar src={p.user?.avatar_url} seed={p.user?.username} size={36} online={online} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{displayName(p.user)}</div>
-                      <div className="truncate font-mono text-[11px] text-zinc-500">@{p.user?.username}</div>
+                      <div className="truncate font-mono text-[11px] text-zinc-500">
+                        @{p.user?.username}
+                        {!isMe && (
+                          <span className={online ? "text-emerald-600 dark:text-emerald-400" : ""}>
+                            {" · "}
+                            {online ? "в сети" : formatLastSeen(lastSeen, now)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     {isMe && <span className="shrink-0 font-mono text-[11px] text-zinc-500">вы</span>}
                   </Link>

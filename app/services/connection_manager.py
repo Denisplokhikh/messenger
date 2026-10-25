@@ -20,6 +20,10 @@ class ConnectionManager:
             if not self.active_connections[user_id]:
                 del self.active_connections[user_id]
 
+    def is_online(self, user_id: uuid.UUID) -> bool:
+        """Есть ли у пользователя хотя бы одно открытое соединение в этом процессе."""
+        return bool(self.active_connections.get(user_id))
+
     async def _send_to_socket(self, websocket: WebSocket, user_id: uuid.UUID, raw_text: str):
         """Отправка в конкретный сокет с удалением при сбое."""
         try:

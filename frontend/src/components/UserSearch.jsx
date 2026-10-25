@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
 import { SearchIcon } from "./icons";
 import { Spinner, inputClass } from "./ui";
@@ -11,6 +12,8 @@ export default function UserSearch({ onSelect, excludeIds = [], actionLabel, aut
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  // Живые статусы из WebSocket перекрывают те, что пришли в результатах поиска
+  const presenceByUser = useChatStore((s) => s.presenceByUser);
 
   useEffect(() => {
     const q = query.trim();
@@ -72,7 +75,12 @@ export default function UserSearch({ onSelect, excludeIds = [], actionLabel, aut
                   onClick={() => onSelect(u)}
                   className="group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-900"
                 >
-                  <Avatar src={u.avatar_url} seed={u.username} size={32} />
+                  <Avatar
+                    src={u.avatar_url}
+                    seed={u.username}
+                    size={32}
+                    online={presenceByUser[u.id]?.is_online ?? u.is_online}
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{u.full_name || u.username}</span>
                     <span className="block truncate font-mono text-[11px] text-zinc-500">@{u.username}</span>

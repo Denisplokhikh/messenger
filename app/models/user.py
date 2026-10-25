@@ -24,6 +24,11 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     bio: Mapped[str | None] = mapped_column(String(255), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Последняя активность: вход и закрытие WebSocket. NULL — пользователь ещё ни разу не заходил.
+    # Пока он онлайн, это время подключения, а «онлайн» считается по активным сокетам
+    last_seen_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

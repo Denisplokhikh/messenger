@@ -20,6 +20,7 @@ from app.schemas.ws import (
     WSSendMessageAction,
     WSTypingAction,
 )
+from app.services import presence
 from app.services.connection_manager import manager
 from app.services.message_service import MessageService
 from app.utils.security import decode_access_token
@@ -70,12 +71,17 @@ async def websocket_endpoint(
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-    manager.connect(user.uuid, websocket)
-
-    ack = WSConnectionAck(user_id=user.uuid, username=user.username)
-    await websocket.send_text(ack.model_dump_json())
-
+    connected = False
     try:
+        manager.connect(user.uuid, websocket)
+        connected = True
+
+        ack = WSConnectionAck(user_id=user.uuid, username=user.username)
+        await websocket.send_text(ack.model_dump_json())
+
+        # Собеседники сразу увидят «в сети», а last_seen_at обновится в базе
+        await presence.mark_online(user)
+
         while True:
             raw_data = await websocket.receive_text()
             try:
@@ -131,9 +137,12 @@ async def websocket_endpoint(
                 await websocket.send_text(err.model_dump_json())
 
     except WebSocketDisconnect:
-        manager.disconnect(user.uuid, websocket)
+        pass
     except Exception as e:
         logger.exception(f"Unexpected error in WS for user {user.uuid}: {e}")
-        manager.disconnect(user.uuid, websocket)
+    finally:
+        if connected:
+            manager.disconnect(user.uuid, websocket)
+            await presence.mark_offline(user)
 
 

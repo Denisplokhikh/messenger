@@ -24,6 +24,8 @@ export function getChatInfo(chat, myId) {
     subtitle: `@${username}`,
     isGroup: false,
     otherUserId: other?.user_id,
+    // Полный публичный профиль собеседника: оттуда берём last_seen_at и is_online
+    otherUser: user,
   };
 }
 

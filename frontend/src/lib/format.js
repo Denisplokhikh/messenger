@@ -32,6 +32,35 @@ export function formatChatTime(iso) {
   return new Date(iso).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" });
 }
 
+// «был(а) в сети 5 минут назад». now передаётся, чтобы подпись обновлялась по таймеру
+export function formatLastSeen(iso, now = Date.now()) {
+  if (!iso) return "не в сети";
+
+  const then = new Date(iso);
+  const diffMs = Math.max(0, now - then.getTime());
+  const minutes = Math.floor(diffMs / 60000);
+
+  if (minutes < 1) return "был(а) в сети только что";
+  if (minutes < 60) {
+    return `был(а) в сети ${minutes} ${plural(minutes, ["минуту", "минуты", "минут"])} назад`;
+  }
+
+  const time = formatTime(iso);
+  if (isSameDay(then, new Date(now))) return `был(а) в сети сегодня в ${time}`;
+
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (isSameDay(then, yesterday)) return `был(а) в сети вчера в ${time}`;
+
+  const sameYear = then.getFullYear() === new Date(now).getFullYear();
+  const date = then.toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "long",
+    year: sameYear ? undefined : "numeric",
+  });
+  return `был(а) в сети ${date}`;
+}
+
 // plural(5, ["участник", "участника", "участников"]) → "участников"
 export function plural(n, [one, few, many]) {
   const mod10 = n % 10;

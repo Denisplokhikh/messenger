@@ -37,6 +37,7 @@ jobs:
       SECRET_KEY: ci-only-secret-key
       # Одноразовый ключ только для тестовой базы в CI, к реальным данным отношения не имеет
       MESSAGE_ENCRYPTION_KEY: _MePLHMcofVsyY8iVAzVeYDc9_8MQ65VEH5p3b8iIDM=
+      ATTACHMENT_ENCRYPTION_KEY: uPnKhkP5OvuWNe8RhXQT6LCHdffdswVS7m3xCsMvaRw=
       DEBUG: "false"
 
     steps:

@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # Ключ Fernet для шифрования сообщений в БД. Дефолта нет специально:
     # без ключа приложение не стартует, а потеря ключа = потеря всех сообщений.
     MESSAGE_ENCRYPTION_KEY: str
+    # Отдельный ключ AES-256-GCM для файлов вложений (32 байта в urlsafe base64), тоже без дефолта
+    ATTACHMENT_ENCRYPTION_KEY: str
     MAX_ATTACHMENT_BYTES: int = 50 * 1024 * 1024
     MAX_ATTACHMENTS_PER_MESSAGE: int = 10
     # Загруженные пользователями файлы (аватарки), раздаются по /media

@@ -105,6 +105,7 @@ async def websocket_endpoint(
                             chat_uuid=msg_action.chat_id,
                             sender=user,
                             content=msg_action.content,
+                            attachment_ids=msg_action.attachment_ids,
                         )
                     except HTTPException as e:
                         err = WSErrorResponse(error=e.detail)

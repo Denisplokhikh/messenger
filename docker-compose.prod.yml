@@ -43,6 +43,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:?}
       ALGORITHM: ${ALGORITHM:-HS256}
       MESSAGE_ENCRYPTION_KEY: ${MESSAGE_ENCRYPTION_KEY:?}
+      ATTACHMENT_ENCRYPTION_KEY: ${ATTACHMENT_ENCRYPTION_KEY:?}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
     # Порт виден только внутри docker-сети, снаружи запросы приходят через прокси Coolify.
     # Поэтому --forwarded-allow-ips * из Dockerfile здесь безопасен: подделать X-Forwarded-For в обход прокси нельзя

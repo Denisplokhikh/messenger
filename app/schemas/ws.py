@@ -1,9 +1,10 @@
 import datetime
 import uuid
 from typing import Any, Literal
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
-from app.schemas.message import MessageContent
+from app.schemas.attachment import AttachmentResponse
+from app.schemas.message import MessageInput
 
 
 class WSAuthPayload(BaseModel):
@@ -36,18 +37,10 @@ class WSBaseAction(BaseModel):
 class WSPingAction(WSBaseAction):
     action: Literal["ping"] = "ping"
 
-class WSSendMessageAction(WSBaseAction):
+class WSSendMessageAction(WSBaseAction, MessageInput):
+    # content и attachment_ids с проверками — из MessageInput, те же, что у HTTP
     action: Literal["send_message"] = "send_message"
     chat_id: uuid.UUID
-    content: MessageContent
-
-    @field_validator("content")
-    @classmethod
-    def validate_content(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Сообшение не должно быть пустым")
-        return v
 
 class WSTypingAction(WSBaseAction):
     """Клиент сообщает, что набирает текст. Шлёт не чаще раза в несколько секунд, пока печатает."""
@@ -71,8 +64,9 @@ class WSMessagePayload(BaseModel):
     chat_id: uuid.UUID
     sender_id: uuid.UUID
     sender_username: str
-    content: str
+    content: str | None
     created_at: datetime.datetime
+    attachments: list[AttachmentResponse] = []
 
 class WSTypingEvent(BaseModel):
     # События «перестал печатать» нет: клиент сам гасит индикатор, если новых typing долго не было

@@ -1,6 +1,6 @@
 import datetime
 from uuid import UUID, uuid4
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Uuid, func, text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Uuid, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -49,3 +49,12 @@ class Attachment(Base):
     # Relationships
     message: Mapped["Message | None"] = relationship("Message", back_populates="attachments")
     uploader: Mapped["User"] = relationship("User")
+
+    # Для фоновой очистки: в индекс попадают только неотправленные вложения, поэтому он маленький
+    __table_args__ = (
+        Index(
+            "ix_attachments_unsent_created_at",
+            "created_at",
+            postgresql_where=text("message_id IS NULL"),
+        ),
+    )

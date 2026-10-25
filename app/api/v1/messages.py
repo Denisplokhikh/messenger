@@ -31,5 +31,9 @@ async def send_message_http(
     message_service: Annotated[MessageService, Depends(get_message_service)],
 ):
     return await message_service.send_message(
-        chat_uuid=chat_uuid, sender=current_user, content=payload.content, exclude_sender=True
+        chat_uuid=chat_uuid,
+        sender=current_user,
+        content=payload.content,
+        attachment_ids=payload.attachment_ids,
+        exclude_sender=True,
     )

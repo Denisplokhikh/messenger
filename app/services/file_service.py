@@ -1,15 +1,10 @@
 import io
 import os
 import re
-import uuid
 from dataclasses import dataclass
-from pathlib import Path
 
 import filetype
 from PIL import Image, ImageOps, UnidentifiedImageError
-
-from app.config import settings
-from app.utils.security import decrypt_bytes, encrypt_bytes
 
 # Картинки, которые Pillow пережимает в WebP и показывает прямо в чате.
 # SVG сюда не входит: это XML, внутри может быть <script>, поэтому он только скачивается.
@@ -21,10 +16,6 @@ IMAGE_MAX_SIDE = 2560
 THUMB_MAX_SIDE = 400
 # Защита от «декомпрессионных бомб», как у аватарок
 MAX_IMAGE_PIXELS = 40_000_000
-
-# Ключ генерирует сервер (new_storage_key), но проверяем всё равно: путь к файлу строится из него,
-# и «../» или чужое имя в ключе означали бы выход за пределы ATTACHMENTS_DIR
-STORAGE_KEY_RE = re.compile(r"[0-9a-f]{32}(_thumb)?")
 
 MAX_FILE_NAME_LENGTH = 255
 DEFAULT_FILE_NAME = "file"
@@ -86,45 +77,6 @@ def process_image(data: bytes) -> ProcessedImage:
     except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as e:
         raise ValueError("not an image") from e
 
-
-# ---------- Хранение на диске ----------
-# Все функции синхронные и работают с диском — из async-кода вызывать через run_in_threadpool.
-
-def new_storage_key() -> str:
-    """Имя файла на диске. Никак не связано с исходным именем, поэтому ничего о файле не выдаёт."""
-    return uuid.uuid4().hex
-
-
-def _blob_path(key: str) -> Path:
-    if not STORAGE_KEY_RE.fullmatch(key):
-        raise ValueError(f"invalid storage key: {key!r}")
-    return settings.ATTACHMENTS_DIR / key
-
-
-def save_blob(key: str, data: bytes) -> None:
-    """Шифрует и записывает файл атомарно: либо он появится целиком, либо не появится вовсе."""
-    path = _blob_path(key)
-    tmp = path.with_name(path.name + ".tmp")
-    try:
-        tmp.write_bytes(encrypt_bytes(data))
-        # Переименование в пределах одной папки — одна операция, прервать её посередине нельзя.
-        # os.replace, а не os.rename: на Windows rename падает, если файл с таким именем уже есть
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
-
-
-def load_blob(key: str) -> bytes:
-    """Читает и расшифровывает файл. Нет файла — FileNotFoundError, битый или чужой ключ — InvalidToken."""
-    return decrypt_bytes(_blob_path(key).read_bytes())
-
-
-def delete_blobs(key: str) -> None:
-    """Удаляет файл вместе с превью. Отсутствие любого из них — не ошибка."""
-    _blob_path(key).unlink(missing_ok=True)
-    _blob_path(f"{key}_thumb").unlink(missing_ok=True)
-    
 
 # ---------- Имя файла ----------
 

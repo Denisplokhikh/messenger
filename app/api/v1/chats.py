@@ -132,7 +132,11 @@ async def get_my_chats(
         .where(Message.chat_id.in_([chat.id for chat in chats]))
         .distinct(Message.chat_id)
         .order_by(Message.chat_id, Message.id.desc())
-        .options(selectinload(Message.sender), selectinload(Message.chat))
+        .options(
+            selectinload(Message.sender),
+            selectinload(Message.chat),
+            selectinload(Message.attachments),
+        )
     )
     result = await db.execute(stmt)
     last_msgs = result.scalars().all() 

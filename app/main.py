@@ -1,5 +1,5 @@
 from pathlib import Path
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 import asyncio
 import logging
 
@@ -13,6 +13,7 @@ from alembic.config import Config
 from app.api.v1.router import api_v1_router
 from app.config import settings
 from app.database import engine
+from app.services.attachment_cleanup import run_cleanup_loop
 
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -40,7 +41,11 @@ async def lifespan(app: FastAPI):
         raise
     logger.info("Alembic database migrations applied successfully.")
 
+    cleanup_task = asyncio.create_task(run_cleanup_loop())
     yield
+    cleanup_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await cleanup_task
     # Cleanup database engine connections on shutdown
     await engine.dispose()
 

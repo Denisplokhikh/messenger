@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Sequence
 from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from sqlalchemy import func, select, update
@@ -6,12 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db
+from app.models.attachment import Attachment
 from app.models.chat import Chat
 from app.models.chat_participant import ChatParticipant
 from app.models.message import Message
 from app.models.user import User
 from app.services.connection_manager import manager
 
+from app.schemas.attachment import AttachmentResponse
 from app.schemas.ws import WSMessagePayload, WSNewMessageEvent, WSTypingEvent
 
 class MessageService:
@@ -45,6 +48,36 @@ class MessageService:
         )
         return list((await self.db.execute(stmt)).scalars().all())
 
+    async def _claim_attachments(
+        self, attachment_uuids: Sequence[uuid.UUID], uploader_id: int
+    ) -> list[Attachment]:
+        """Вложения для нового сообщения: только свои и ещё не отправленные, иначе 400.
+
+        Без проверки владельца можно было бы прикрепить к своему сообщению чужой файл по его uuid
+        и получить на него ссылку. FOR UPDATE: если два сообщения одновременно берут одно вложение,
+        второе дождётся первого, увидит, что вложение уже отправлено, и получит 400.
+        """
+        wanted = set(attachment_uuids)
+        if not wanted:
+            return []
+        stmt = (
+            select(Attachment)
+            .where(
+                Attachment.uuid.in_(wanted),
+                Attachment.uploader_id == uploader_id,
+                Attachment.message_id.is_(None),
+            )
+            .order_by(Attachment.id)
+            .with_for_update()
+        )
+        attachments = list((await self.db.execute(stmt)).scalars().all())
+        if len(attachments) != len(wanted):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Attachment not found or already sent",
+            )
+        return attachments
+
     async def get_chat_messages(
         self, chat_uuid: uuid.UUID, user_id: int, limit: int = 50, before_id: int | None = None,
     ) -> list[Message]:
@@ -53,7 +86,11 @@ class MessageService:
         stmt = (
             select(Message)
             .where(Message.chat_id == chat.id)
-            .options(selectinload(Message.sender), selectinload(Message.chat))
+            .options(
+                selectinload(Message.sender),
+                selectinload(Message.chat),
+                selectinload(Message.attachments),
+            )
             .order_by(Message.id.desc())
             .limit(limit)
         )
@@ -64,14 +101,22 @@ class MessageService:
         return list(reversed(messages))
 
     async def send_message(
-        self, chat_uuid: uuid.UUID, sender: User, content: str, exclude_sender: bool = False,
+        self,
+        chat_uuid: uuid.UUID,
+        sender: User,
+        content: str | None,
+        attachment_ids: Sequence[uuid.UUID] = (),
+        exclude_sender: bool = False,
     ) -> Message:
         # 1. Проверяем, что пользователь состоит в чате, и получаем uuid всех участников для рассылки
         chat = await self._get_chat_for_participant(chat_uuid, sender.id)
         participant_uuids = await self._participant_uuids(chat.id)
+        attachments = await self._claim_attachments(attachment_ids, sender.id)
 
-        # 2. Создаем сообщение
-        message = Message(chat_id=chat.id, sender_id=sender.id, content=content)
+        # 2. Создаем сообщение. message_id у вложений SQLAlchemy проставит сама при flush
+        message = Message(
+            chat_id=chat.id, sender_id=sender.id, content=content, attachments=attachments
+        )
         self.db.add(message)
 
         # 3. Обновляем время чата (чтобы он поднимался наверх в списке диалогов)
@@ -80,7 +125,7 @@ class MessageService:
         )
 
         await self.db.commit()
-        await self.db.refresh(message, attribute_names=["sender", "chat"])
+        await self.db.refresh(message, attribute_names=["sender", "chat", "attachments"])
 
         # 4. Рассылаем WebSocket-событие участникам
         # При отправке через HTTP отправитель получает сообщение в ответе, эхо по сокету дало бы дубль
@@ -95,6 +140,7 @@ class MessageService:
                 sender_username=sender.username,
                 content=message.content,
                 created_at=message.created_at,
+                attachments=[AttachmentResponse.model_validate(a) for a in message.attachments],
             )
         )
         await manager.broadcast_to_users(event.model_dump(mode="json"), recipient_uuids)

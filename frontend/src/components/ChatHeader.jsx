@@ -1,11 +1,15 @@
+import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { getChatInfo, getTypingLabel } from "../lib/chat";
 import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
+import GroupInfoModal from "./GroupInfoModal";
 import { ArrowLeftIcon } from "./icons";
 
 export default function ChatHeader({ chat, myId }) {
   const info = getChatInfo(chat, myId);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const closeInfo = useCallback(() => setInfoOpen(false), []);
   const typing = useChatStore((s) => s.typingByChat[chat.id]);
   const typingLabel = getTypingLabel(typing, info.isGroup);
   const profileLink = info.otherUserId ? `/profile/${info.otherUserId}` : null;
@@ -38,10 +42,19 @@ export default function ChatHeader({ chat, myId }) {
         <Link to={profileLink} className="flex min-w-0 items-center gap-3 rounded-md hover:opacity-80">
           {identity}
         </Link>
+      ) : info.isGroup ? (
+        <button
+          type="button"
+          onClick={() => setInfoOpen(true)}
+          className="flex min-w-0 items-center gap-3 rounded-md text-left hover:opacity-80"
+        >
+          {identity}
+        </button>
       ) : (
         <div className="flex min-w-0 items-center gap-3">{identity}</div>
       )}
 
+      {infoOpen && <GroupInfoModal chat={chat} myId={myId} onClose={closeInfo} />}
     </header>
   );
 }

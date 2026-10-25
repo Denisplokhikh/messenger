@@ -40,6 +40,13 @@ class Message(Base):
     created_at: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    edited_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    deleted_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    
 
     # Relationships
     chat: Mapped["Chat"] = relationship("Chat", back_populates="messages")

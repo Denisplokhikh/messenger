@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { getChatInfo, getTypingLabel } from "../lib/chat";
+import { getChatInfo, getMessagePreview, getTypingLabel } from "../lib/chat";
 import { formatChatTime } from "../lib/format";
 import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
@@ -7,7 +7,7 @@ import Avatar from "./Avatar";
 export default function ChatListItem({ chat, myId, active }) {
   const info = getChatInfo(chat, myId);
   const last = chat.last_message;
-  const preview = last ? `${last.sender_id === myId ? "Вы: " : ""}${last.content}` : "Нет сообщений";
+  const preview = last ? `${last.sender_id === myId ? "Вы: " : ""}${getMessagePreview(last)}` : "Нет сообщений";
   const typing = useChatStore((s) => s.typingByChat[chat.id]);
   const typingLabel = getTypingLabel(typing, info.isGroup);
 

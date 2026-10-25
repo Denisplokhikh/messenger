@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { formatTime } from "../lib/format";
 import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
+import MessageAttachments from "./MessageAttachments";
 
 // memo: при новом сообщении перерисовывается только новая строка, а не вся лента
 function MessageRow({ msg, name, username, avatarUrl, isMe, grouped }) {
@@ -37,13 +38,18 @@ function MessageRow({ msg, name, username, avatarUrl, isMe, grouped }) {
             <span className="shrink-0 font-mono text-[11px] text-zinc-500">{time}</span>
           </div>
         )}
-        <p
-          className={`text-sm leading-6 break-words whitespace-pre-wrap transition-opacity ${
-            msg.status === "failed" ? "text-red-600 dark:text-red-400" : "text-zinc-800 dark:text-zinc-200"
-          } ${msg.status === "pending" ? "opacity-60" : ""}`}
-        >
-          {msg.content}
-        </p>
+        <div className={`transition-opacity ${msg.status === "pending" ? "opacity-60" : ""}`}>
+          {msg.content && (
+            <p
+              className={`text-sm leading-6 break-words whitespace-pre-wrap ${
+                msg.status === "failed" ? "text-red-600 dark:text-red-400" : "text-zinc-800 dark:text-zinc-200"
+              }`}
+            >
+              {msg.content}
+            </p>
+          )}
+          <MessageAttachments attachments={msg.attachments} />
+        </div>
         {msg.status === "failed" && <FailedActions msg={msg} />}
       </div>
     </div>

@@ -52,6 +52,39 @@ async function request(path, { method = "GET", body, form, formData, error = "О
   return data;
 }
 
+// Загрузка с прогрессом: у fetch нет события прогресса отправки, поэтому XMLHttpRequest.
+// Возвращает { promise, abort }: abort нужен, чтобы отменить загрузку крестиком в композере
+function upload(path, file, { onProgress, error = "Не удалось загрузить файл" } = {}) {
+  const xhr = new XMLHttpRequest();
+  const promise = new Promise((resolve, reject) => {
+    xhr.open("POST", `/api/v1${path}`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    xhr.responseType = "json";
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress?.(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      if (xhr.status === 401 && token) {
+        onUnauthorized?.();
+        reject(new ApiError("Сессия истекла. Войдите снова.", 401));
+      } else if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(xhr.response);
+      } else {
+        reject(new ApiError(extractDetail(xhr.response) || error, xhr.status));
+      }
+    };
+    xhr.onerror = () => reject(new ApiError(error, 0));
+    xhr.onabort = () => reject(new ApiError("Загрузка отменена", 0));
+
+    const formData = new FormData();
+    formData.append("file", file, file.name);
+    xhr.send(formData);
+  });
+  return { promise, abort: () => xhr.abort() };
+}
+
 export const api = {
   login: (username, password) =>
     request("/auth/login", { method: "POST", form: { username, password }, error: "Неверный логин или пароль" }),
@@ -97,6 +130,12 @@ export const api = {
     if (beforeId != null) params.set("before_id", beforeId);
     return request(`/chats/${chatId}/messages?${params}`, { error: "Не удалось загрузить сообщения" });
   },
-  sendMessage: (chatId, content) =>
-    request(`/chats/${chatId}/messages`, { method: "POST", body: { content }, error: "Не удалось отправить сообщение" }),
+  sendMessage: (chatId, content, attachmentIds = []) =>
+    request(`/chats/${chatId}/messages`, {
+      method: "POST",
+      body: { content, attachment_ids: attachmentIds },
+      error: "Не удалось отправить сообщение",
+    }),
+
+  uploadAttachment: (file, onProgress) => upload("/attachments", file, { onProgress }),
 };

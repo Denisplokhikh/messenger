@@ -48,3 +48,14 @@ export function getSender(msg, chat) {
     avatarUrl: user?.avatar_url ?? null,
   };
 }
+
+// Текст для превью в списке чатов: подпись, а если её нет — что приложено
+export function getMessagePreview(msg) {
+  if (msg.content) return msg.content;
+  const attachments = msg.attachments ?? [];
+  const images = attachments.filter((a) => a.kind === "image").length;
+  if (attachments.length === 0) return "";
+  if (images === attachments.length) return images === 1 ? "Фото" : `${images} фото`;
+  if (attachments.length === 1) return `Файл: ${attachments[0].file_name}`;
+  return `${attachments.length} ${plural(attachments.length, ["вложение", "вложения", "вложений"])}`;
+}

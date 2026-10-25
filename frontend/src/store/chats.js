@@ -18,6 +18,10 @@ function enqueue(chatId, task) {
   sendQueues[chatId] = (sendQueues[chatId] ?? Promise.resolve()).then(task);
 }
 
+function attachmentIds(msg) {
+  return (msg.attachments ?? []).map((a) => a.id).join(",");
+}
+
 function findDraft(state, draft) {
   return state.messagesByChat[draft.chat_id]?.find((m) => m.client_id === draft.client_id);
 }
@@ -123,9 +127,14 @@ export const useChatStore = create((set, get) => ({
     if (list?.some((m) => m.id === msg.id)) return;
 
     // Наше же сообщение может прийти по WebSocket раньше ответа на POST —
-    // подменяем им самый старый совпадающий черновик, чтобы не было дубля
+    // подменяем им самый старый совпадающий черновик, чтобы не было дубля.
+    // Сравниваем и вложения: у сообщений из одних файлов content у всех null
     const pending = list?.find(
-      (m) => m.status === "pending" && m.sender_id === msg.sender_id && m.content === msg.content,
+      (m) =>
+        m.status === "pending" &&
+        m.sender_id === msg.sender_id &&
+        m.content === msg.content &&
+        attachmentIds(m) === attachmentIds(msg),
     );
     if (pending) {
       get().confirmMessage(chatId, pending.client_id, msg);
@@ -148,25 +157,32 @@ export const useChatStore = create((set, get) => ({
 
   // Оптимистичная отправка: сообщение сразу появляется в ленте со статусом pending,
   // а после ответа сервера заменяется настоящим. Возвращается сразу, не дожидаясь сети.
-  sendMessage(chatId, text, myId) {
-    for (const chunk of splitTextIntoChunks(text)) {
+  // attachments — уже загруженные вложения (ответы POST /attachments), их ссылки работают сразу
+  sendMessage(chatId, text, myId, attachments = []) {
+    const chunks = splitTextIntoChunks(text);
+    // Без текста — одно сообщение из одних вложений
+    if (chunks.length === 0) chunks.push(null);
+
+    chunks.forEach((chunk, i) => {
       const draft = {
         id: `tmp-${++draftSeq}`,
         client_id: `tmp-${draftSeq}`,
         chat_id: chatId,
         sender_id: myId,
         content: chunk,
+        // Вложения уходят с первым куском текста, как подпись к ним
+        attachments: i === 0 ? attachments : [],
         created_at: new Date().toISOString(),
         status: "pending",
       };
       appendToChat(set, draft);
       enqueue(chatId, () => get().deliver(draft));
-    }
+    });
   },
 
   async deliver(draft) {
     try {
-      const msg = await api.sendMessage(draft.chat_id, draft.content);
+      const msg = await api.sendMessage(draft.chat_id, draft.content, draft.attachments.map((a) => a.id));
       get().confirmMessage(draft.chat_id, draft.client_id, msg);
     } catch (e) {
       // Ответ мог не дойти, хотя сообщение уже подтвердилось через WebSocket

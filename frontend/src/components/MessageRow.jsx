@@ -35,7 +35,7 @@ function MessageRow({ msg, name, username, avatarUrl, isMe, grouped }) {
             >
               {name}
             </Link>
-            <span className="shrink-0 font-mono text-[11px] text-zinc-500">{time}</span>
+            <span className="shrink-0 font-mono text-xs text-zinc-500">{time}</span>
           </div>
         )}
         <div className={`transition-opacity ${msg.status === "pending" ? "opacity-60" : ""}`}>
@@ -61,7 +61,7 @@ function FailedActions({ msg }) {
   const discardMessage = useChatStore((s) => s.discardMessage);
 
   return (
-    <div className="flex gap-3 font-mono text-[11px] text-zinc-500">
+    <div className="flex gap-3 font-mono text-xs text-zinc-500">
       <span className="text-red-600 dark:text-red-400">Не отправлено</span>
       <button type="button" onClick={() => retryMessage(msg)} className="hover:text-accent-text hover:underline">
         Повторить

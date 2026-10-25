@@ -52,7 +52,7 @@ function ImageTile({ attachment, onOpen, className = "", style }) {
     return (
       <div
         style={style}
-        className={`flex items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 p-2 text-center font-mono text-[11px] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
+        className={`flex items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 p-2 text-center font-mono text-xs text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
       >
         Не удалось загрузить
       </div>
@@ -88,7 +88,7 @@ function FileCard({ attachment }) {
       <FileIcon size={20} className="shrink-0 text-zinc-500" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{attachment.file_name}</div>
-        <div className="font-mono text-[11px] text-zinc-500">{formatBytes(attachment.size)}</div>
+        <div className="font-mono text-xs text-zinc-500">{formatBytes(attachment.size)}</div>
       </div>
       <DownloadIcon size={16} className="shrink-0 text-zinc-400" />
     </a>

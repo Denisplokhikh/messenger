@@ -72,7 +72,7 @@ export default function GroupInfoModal({ chat, myId, onClose }) {
                     <Avatar src={p.user?.avatar_url} seed={p.user?.username} size={36} online={online} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium">{displayName(p.user)}</div>
-                      <div className="truncate font-mono text-[11px] text-zinc-500">
+                      <div className="truncate font-mono text-xs text-zinc-500">
                         @{p.user?.username}
                         {!isMe && (
                           <span className={online ? "text-emerald-600 dark:text-emerald-400" : ""}>
@@ -82,7 +82,7 @@ export default function GroupInfoModal({ chat, myId, onClose }) {
                         )}
                       </div>
                     </div>
-                    {isMe && <span className="shrink-0 font-mono text-[11px] text-zinc-500">вы</span>}
+                    {isMe && <span className="shrink-0 font-mono text-xs text-zinc-500">вы</span>}
                   </Link>
                 </li>
               );

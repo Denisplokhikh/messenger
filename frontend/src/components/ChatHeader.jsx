@@ -29,10 +29,10 @@ export default function ChatHeader({ chat, myId }) {
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold leading-tight">{info.title}</div>
         {typingLabel ? (
-          <div className="truncate font-mono text-[11px] leading-tight text-accent">{typingLabel}</div>
+          <div className="truncate font-mono text-xs leading-tight text-accent">{typingLabel}</div>
         ) : (
           <div
-            className={`truncate font-mono text-[11px] leading-tight ${
+            className={`truncate font-mono text-xs leading-tight ${
               onlineTone ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-500"
             }`}
           >

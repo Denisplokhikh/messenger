@@ -26,13 +26,13 @@ export default function ChatListItem({ chat, myId, active }) {
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate text-sm font-medium">{info.title}</span>
           {last && (
-            <span className="shrink-0 font-mono text-[11px] text-zinc-500">{formatChatTime(last.created_at)}</span>
+            <span className="shrink-0 font-mono text-xs text-zinc-500">{formatChatTime(last.created_at)}</span>
           )}
         </div>
         {typingLabel ? (
-          <p className="truncate text-xs text-accent">{typingLabel}</p>
+          <p className="truncate text-[13px] text-accent">{typingLabel}</p>
         ) : (
-          <p className="truncate text-xs text-zinc-500">{preview}</p>
+          <p className="truncate text-[13px] text-zinc-500">{preview}</p>
         )}
       </div>
     </Link>

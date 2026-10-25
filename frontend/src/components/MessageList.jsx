@@ -124,7 +124,7 @@ function DateDivider({ label }) {
   return (
     <div className="my-3 flex items-center gap-3 px-4 md:px-6">
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
-      <span className="font-mono text-[11px] text-zinc-500">{label}</span>
+      <span className="font-mono text-xs text-zinc-500">{label}</span>
       <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
     </div>
   );

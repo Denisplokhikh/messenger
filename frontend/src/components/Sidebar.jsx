@@ -73,7 +73,7 @@ export default function Sidebar({ activeChatId, className = "" }) {
           <Avatar src={user.avatar_url} seed={user.username} size={28} />
           <span className="min-w-0">
             <span className="block truncate text-sm font-medium leading-tight">{user.full_name || user.username}</span>
-            <span className="block truncate font-mono text-[11px] leading-tight text-zinc-500">@{user.username}</span>
+            <span className="block truncate font-mono text-xs leading-tight text-zinc-500">@{user.username}</span>
           </span>
         </Link>
         <IconButton label="Выйти" onClick={logout} className="hover:text-red-600 dark:hover:text-red-400">

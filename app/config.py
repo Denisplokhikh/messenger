@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "messenger_db"
 
+    # Тесты используют один движок сразу в нескольких event loop'ах (pytest-asyncio и
+    # поток TestClient), а пул соединений между loop'ами шарить нельзя — см. app/database.py
+    TESTING: bool = False
+
     # Security & JWT
     SECRET_KEY: str = "supersecretjwtsecretkeyreplaceinproduction987654321"
     ALGORITHM: str = "HS256"

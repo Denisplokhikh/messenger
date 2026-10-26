@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 import json
 import logging
 import uuid
+
+import anyio
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -144,6 +146,11 @@ async def websocket_endpoint(
     finally:
         if connected:
             manager.disconnect(user.uuid, websocket)
-            await presence.mark_offline(user)
+            # Задачу могут отменить в момент обрыва связи (так делает TestClient при закрытии
+            # сокета, так же бывает при остановке сервера). Без shield отмена прерывает
+            # mark_offline на первом await: собеседники не получают presence, а last_seen_at
+            # остаётся старым. Даём очистке дойти до конца.
+            with anyio.CancelScope(shield=True):
+                await presence.mark_offline(user)
 
 

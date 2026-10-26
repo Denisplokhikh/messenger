@@ -35,8 +35,11 @@ def create_chat(sync_client: TestClient, user1: dict, user2: dict) -> int:
 
 def authenticate(ws, token: str) -> None:
     ws.send_text(json.dumps({"type": "authenticate", "token": token}))
-    ack = json.loads(ws.receive_text())
-    assert ack["event"] == "connected"
+    # presence может прилететь раньше ack, если собеседник подключился в этот же момент
+    while True:
+        ack = json.loads(ws.receive_text())
+        if ack["event"] == "connected":
+            return
 
 
 def next_event(ws, event_type: str) -> dict:
@@ -169,8 +172,9 @@ def test_typing_delivered_to_recipient(sync_client: TestClient):
         }
 
         # Самому себе typing не приходит: следующим в сокете отправителя будет pong
+        # (presence о собеседнике мог прийти в этот же момент, поэтому пропускаем его)
         ws_sender.send_text(json.dumps({"action": "ping"}))
-        assert json.loads(ws_sender.receive_text())["event"] == "pong"
+        assert next_event(ws_sender, "pong")["event"] == "pong"
 
 
 def test_typing_in_foreign_chat_rejected(sync_client: TestClient):

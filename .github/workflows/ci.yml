@@ -10,6 +10,8 @@ on:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    # Страховка на случай зависания вне тестов (сбор/плагины): job не будет висеть до лимита GitHub
+    timeout-minutes: 15
 
     # Тесты ходят в настоящий Postgres, поэтому поднимаем его рядом с job
     services:
@@ -29,7 +31,7 @@ jobs:
 
     # app/config.py читает настройки из переменных окружения
     env:
-      POSTGRES_SERVER: localhost
+      POSTGRES_SERVER: 127.0.0.1
       POSTGRES_PORT: 5432
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres

@@ -25,6 +25,19 @@ def _png(size=(600, 300)) -> bytes:
     return buf.getvalue()
 
 
+def _next_event(ws, event_type: str) -> dict:
+    """Читает события до нужного, пропуская presence: он приходит после подключения собеседника."""
+    while True:
+        data = json.loads(ws.receive_text())
+        if data["event"] == event_type:
+            return data
+
+
+def _authenticate(ws, token: str) -> None:
+    ws.send_text(json.dumps({"type": "authenticate", "token": token}))
+    _next_event(ws, "connected")
+
+
 async def _upload(client: AsyncClient, user: dict, name: str, data: bytes):
     return await client.post(
         "/api/v1/attachments",
@@ -260,12 +273,11 @@ def test_ws_message_with_attachment_delivered(sync_client: TestClient):
 
     with sync_client.websocket_connect("/api/v1/ws") as ws_s, sync_client.websocket_connect("/api/v1/ws") as ws_r:
         for ws, user in ((ws_s, sender), (ws_r, recipient)):
-            ws.send_text(json.dumps({"type": "authenticate", "token": user["token"]}))
-            assert json.loads(ws.receive_text())["event"] == "connected"
+            _authenticate(ws, user["token"])
 
         ws_s.send_text(json.dumps({"action": "send_message", "chat_id": chat_id, "attachment_ids": [att["id"]]}))
         for ws in (ws_s, ws_r):
-            message = json.loads(ws.receive_text())["message"]
+            message = _next_event(ws, "new_message")["message"]
             assert message["content"] is None
             assert [a["id"] for a in message["attachments"]] == [att["id"]]
             assert message["attachments"][0]["url"].startswith(f"/api/v1/attachments/{att['id']}/full?")

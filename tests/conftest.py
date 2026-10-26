@@ -7,6 +7,9 @@ from typing import AsyncGenerator
 # Ставим до импорта app: settings читает переменные окружения один раз при импорте.
 os.environ["MEDIA_DIR"] = tempfile.mkdtemp(prefix="messenger-test-media-")
 os.environ["ATTACHMENTS_DIR"] = tempfile.mkdtemp(prefix="messenger-test-attachments-")
+# NullPool: тесты гоняют движок в нескольких event loop'ах, пул соединений между ними
+# приводит к зависаниям (см. app/database.py)
+os.environ["TESTING"] = "1"
 import pytest
 from httpx import ASGITransport, AsyncClient
 from fastapi.testclient import TestClient

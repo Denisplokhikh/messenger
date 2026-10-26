@@ -54,7 +54,28 @@ const initialState = {
   hasMoreByChat: {}, // { [chatId]: boolean } — есть ли ещё история выше
   typingByChat: {}, // { [chatId]: { [userId]: username } } — кто сейчас печатает
   presenceByUser: {}, // { [userId]: { is_online, last_seen_at } } — живые статусы из WebSocket
+  // { [chatId]: { replyTo: Message|null, editing: Message|null } } — что сейчас в поле ввода
+  composerByChat: {},
 };
+
+// Правка и удаление приходят и по WebSocket, и в ответе на свой же запрос —
+// поэтому обновление ленты живёт отдельной функцией, а не внутри каждого вызова.
+function patchMessage(set, chatId, messageId, patch) {
+  set((s) => {
+    const list = s.messagesByChat[chatId];
+    return {
+      messagesByChat: list
+        ? { ...s.messagesByChat, [chatId]: list.map((m) => (m.id === messageId ? { ...m, ...patch } : m)) }
+        : s.messagesByChat,
+      // Превью в списке чатов должно обновиться вместе с самой лентой
+      chats: s.chats.map((c) =>
+        c.id === chatId && c.last_message?.id === messageId
+          ? { ...c, last_message: { ...c.last_message, ...patch } }
+          : c,
+      ),
+    };
+  });
+}
 
 export const useChatStore = create((set, get) => ({
   ...initialState,
@@ -101,6 +122,59 @@ export const useChatStore = create((set, get) => ({
     set((s) => ({
       presenceByUser: { ...s.presenceByUser, [userId]: { is_online, last_seen_at } },
     }));
+  },
+
+  // ---------- Ответ, правка, удаление ----------
+
+  // Что сейчас в поле ввода: ответ на сообщение или правка своего. Взаимоисключающие
+  setReplyTo(chatId, msg) {
+    set((s) => ({
+      composerByChat: { ...s.composerByChat, [chatId]: { replyTo: msg, editing: null } },
+    }));
+  },
+
+  startEdit(chatId, msg) {
+    set((s) => ({
+      composerByChat: { ...s.composerByChat, [chatId]: { replyTo: null, editing: msg } },
+    }));
+  },
+
+  clearComposer(chatId) {
+    set((s) => {
+      const { [chatId]: _removed, ...rest } = s.composerByChat;
+      return { composerByChat: rest };
+    });
+  },
+
+  // Событие из WebSocket: автор поправил текст
+  applyEdit({ chat_id: chatId, message_id: messageId, content, edited_at }) {
+    patchMessage(set, chatId, messageId, { content, edited_at });
+  },
+
+  // Событие из WebSocket: сообщение удалено, остаётся только плашка
+  applyDelete({ chat_id: chatId, message_id: messageId, deleted_at }) {
+    patchMessage(set, chatId, messageId, { content: null, attachments: [], deleted_at });
+    if (get().composerByChat[chatId]?.editing?.id === messageId) get().clearComposer(chatId);
+  },
+
+  async editMessage(chatId, messageId, text) {
+    const updated = await api.editMessage(chatId, messageId, text);
+    get().applyEdit({
+      chat_id: chatId,
+      message_id: updated.id,
+      content: updated.content,
+      edited_at: updated.edited_at,
+    });
+    get().clearComposer(chatId);
+  },
+
+  async deleteMessage(chatId, messageId) {
+    await api.deleteMessage(chatId, messageId);
+    get().applyDelete({
+      chat_id: chatId,
+      message_id: messageId,
+      deleted_at: new Date().toISOString(),
+    });
   },
 
   setTyping({ chat_id: chatId, user_id: userId, username }) {
@@ -171,6 +245,18 @@ export const useChatStore = create((set, get) => ({
     // Без текста — одно сообщение из одних вложений
     if (chunks.length === 0) chunks.push(null);
 
+    // Цитата берётся из композера один раз: дальше пользователь может начать новый ответ,
+    // а уже поставленные в очередь сообщения должны помнить свою
+    const replyTo = get().composerByChat[chatId]?.replyTo ?? null;
+    const replySnapshot = replyTo
+      ? {
+          id: replyTo.id,
+          sender_id: replyTo.sender_id,
+          content: replyTo.content ?? null,
+          deleted_at: replyTo.deleted_at ?? null,
+        }
+      : null;
+
     chunks.forEach((chunk, i) => {
       const draft = {
         id: `tmp-${++draftSeq}`,
@@ -180,17 +266,26 @@ export const useChatStore = create((set, get) => ({
         content: chunk,
         // Вложения уходят с первым куском текста, как подпись к ним
         attachments: i === 0 ? attachments : [],
+        // Ответ — тоже только к первому куску: длинный текст режется на несколько сообщений
+        reply_to: i === 0 ? replySnapshot : null,
         created_at: new Date().toISOString(),
         status: "pending",
       };
       appendToChat(set, draft);
       enqueue(chatId, () => get().deliver(draft));
     });
+
+    if (replySnapshot) get().clearComposer(chatId);
   },
 
   async deliver(draft) {
     try {
-      const msg = await api.sendMessage(draft.chat_id, draft.content, draft.attachments.map((a) => a.id));
+      const msg = await api.sendMessage(
+        draft.chat_id,
+        draft.content,
+        draft.attachments.map((a) => a.id),
+        draft.reply_to?.id ?? null,
+      );
       get().confirmMessage(draft.chat_id, draft.client_id, msg);
     } catch (e) {
       // Ответ мог не дойти, хотя сообщение уже подтвердилось через WebSocket

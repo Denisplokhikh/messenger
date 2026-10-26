@@ -46,11 +46,24 @@ class Message(Base):
     deleted_at: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+    # Ответ на другое сообщение того же чата. NULL — обычное сообщение.
+    # SET NULL: цитата не должна мешать удалить оригинал
+    reply_to_id: Mapped[int | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     
 
     # Relationships
     chat: Mapped["Chat"] = relationship("Chat", back_populates="messages")
     sender: Mapped["User"] = relationship("User", back_populates="messages")
+    # Многие-к-одному на себя: remote_side указывает, какая сторона «родитель»
+    reply_to: Mapped["Message | None"] = relationship(
+        "Message",
+        remote_side=[id],
+        foreign_keys=[reply_to_id],
+        lazy="raise",
+    )
     # Порядок по id = порядок, в котором пользователь прикрепил файлы
     attachments: Mapped[list["Attachment"]] = relationship(
         "Attachment", back_populates="message", order_by="Attachment.id"

@@ -216,3 +216,248 @@ async def test_message_content_encrypted_in_db(client: AsyncClient, create_user,
     stored = raw.scalar_one()
     assert "секретное" not in stored
     assert stored.startswith("gAAAA")  # так начинается любой токен Fernet
+
+
+# ---------- Ответы, редактирование, удаление ----------
+
+async def test_reply_to_message(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+
+    original = await client.post(url, json={"content": "во сколько встречаемся?"}, headers=user2["headers"])
+    reply = await client.post(
+        url,
+        json={"content": "в семь", "reply_to_id": original.json()["id"]},
+        headers=user1["headers"],
+    )
+    assert reply.status_code == 201, reply.text
+    quote = reply.json()["reply_to"]
+    assert quote["id"] == original.json()["id"]
+    assert quote["content"] == "во сколько встречаемся?"
+    assert quote["sender_id"] == user2["id"]
+    assert quote["sender_username"] == user2["username"]
+
+    # Цитата приходит и в истории, а не только в ответе на отправку
+    history = (await client.get(url, headers=user2["headers"])).json()
+    assert history[-1]["reply_to"]["content"] == "во сколько встречаемся?"
+
+
+async def test_reply_to_message_from_another_chat_rejected(
+    client: AsyncClient, create_user, create_direct_chat
+):
+    user1 = await create_user()
+    user2 = await create_user()
+    user3 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    other_chat_id = await create_direct_chat(user1, user3)
+
+    foreign = await client.post(
+        f"/api/v1/chats/{other_chat_id}/messages", json={"content": "чужой чат"}, headers=user1["headers"]
+    )
+    resp = await client.post(
+        f"/api/v1/chats/{chat_id}/messages",
+        json={"content": "ответ", "reply_to_id": foreign.json()["id"]},
+        headers=user1["headers"],
+    )
+    # Ссылаться на сообщение из другого чата нельзя: иначе можно вытащить его текст
+    assert resp.status_code == 400
+
+
+async def test_edit_own_message(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+
+    sent = await client.post(url, json={"content": "черновик"}, headers=user1["headers"])
+    assert sent.json()["edited_at"] is None
+
+    edited = await client.patch(
+        f"{url}/{sent.json()['id']}", json={"content": "финальный текст"}, headers=user1["headers"]
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["content"] == "финальный текст"
+    assert edited.json()["edited_at"] is not None
+    # Время отправки не должно съезжать: сообщение остаётся на своём месте в ленте
+    assert edited.json()["created_at"] == sent.json()["created_at"]
+
+    history = (await client.get(url, headers=user2["headers"])).json()
+    assert history[0]["content"] == "финальный текст"
+
+
+async def test_edit_foreign_message_forbidden(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+    sent = await client.post(url, json={"content": "моё"}, headers=user1["headers"])
+
+    resp = await client.patch(
+        f"{url}/{sent.json()['id']}", json={"content": "чужое"}, headers=user2["headers"]
+    )
+    assert resp.status_code == 403
+
+    history = (await client.get(url, headers=user1["headers"])).json()
+    assert history[0]["content"] == "моё"
+
+
+async def test_edit_message_from_another_chat_not_found(
+    client: AsyncClient, create_user, create_direct_chat
+):
+    user1 = await create_user()
+    user2 = await create_user()
+    user3 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    other_chat_id = await create_direct_chat(user1, user3)
+
+    foreign = await client.post(
+        f"/api/v1/chats/{other_chat_id}/messages", json={"content": "в другом чате"}, headers=user1["headers"]
+    )
+    resp = await client.patch(
+        f"/api/v1/chats/{chat_id}/messages/{foreign.json()['id']}",
+        json={"content": "подмена"},
+        headers=user1["headers"],
+    )
+    # Сообщение существует, но не в этом чате — снаружи это неотличимо от «нет такого»
+    assert resp.status_code == 404
+
+
+async def test_edit_empty_content_rejected(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+    sent = await client.post(url, json={"content": "текст"}, headers=user1["headers"])
+
+    resp = await client.patch(
+        f"{url}/{sent.json()['id']}", json={"content": "   "}, headers=user1["headers"]
+    )
+    assert resp.status_code == 422
+
+
+async def test_delete_own_message(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+
+    sent = await client.post(url, json={"content": "удали меня"}, headers=user1["headers"])
+    resp = await client.delete(f"{url}/{sent.json()['id']}", headers=user1["headers"])
+    assert resp.status_code == 204
+
+    # У собеседника сообщение остаётся в ленте, но без текста — как плашка «удалено»
+    history = (await client.get(url, headers=user2["headers"])).json()
+    assert len(history) == 1
+    assert history[0]["content"] is None
+    assert history[0]["deleted_at"] is not None
+
+
+async def test_deleted_message_text_is_erased_from_db(
+    client: AsyncClient, create_user, create_direct_chat, db_session
+):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+
+    sent = await client.post(url, json={"content": "сотри это"}, headers=user1["headers"])
+    await client.delete(f"{url}/{sent.json()['id']}", headers=user1["headers"])
+
+    # «Удалено» должно означать «стёрто», а не «спрятано»: в колонке не остаётся шифротекста
+    raw = await db_session.execute(
+        sql_text("SELECT content, deleted_at FROM messages WHERE id = :id"),
+        {"id": sent.json()["id"]},
+    )
+    content, deleted_at = raw.one()
+    assert content is None
+    assert deleted_at is not None
+
+
+async def test_delete_foreign_message_forbidden(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+    sent = await client.post(url, json={"content": "не трогать"}, headers=user1["headers"])
+
+    resp = await client.delete(f"{url}/{sent.json()['id']}", headers=user2["headers"])
+    assert resp.status_code == 403
+
+    history = (await client.get(url, headers=user2["headers"])).json()
+    assert history[0]["content"] == "не трогать"
+
+
+async def test_delete_message_is_idempotent(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+    sent = await client.post(url, json={"content": "дважды"}, headers=user1["headers"])
+
+    first = await client.delete(f"{url}/{sent.json()['id']}", headers=user1["headers"])
+    second = await client.delete(f"{url}/{sent.json()['id']}", headers=user1["headers"])
+    # Клиент мог не получить ответ и повторить запрос — это не ошибка
+    assert first.status_code == second.status_code == 204
+
+
+async def test_cannot_edit_deleted_message(client: AsyncClient, create_user, create_direct_chat):
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+    url = f"/api/v1/chats/{chat_id}/messages"
+    sent = await client.post(url, json={"content": "было"}, headers=user1["headers"])
+    await client.delete(f"{url}/{sent.json()['id']}", headers=user1["headers"])
+
+    resp = await client.patch(
+        f"{url}/{sent.json()['id']}", json={"content": "станет"}, headers=user1["headers"]
+    )
+    assert resp.status_code == 400
+
+
+async def test_delete_message_removes_attachment_files(
+    client: AsyncClient, create_user, create_direct_chat, db_session
+):
+    from app.models.attachment import Attachment
+    from app.services import attachment_storage as storage
+
+    user1 = await create_user()
+    user2 = await create_user()
+    chat_id = await create_direct_chat(user1, user2)
+
+    upload = await client.post(
+        "/api/v1/attachments",
+        files={"file": ("notes.txt", b"secret bytes", "text/plain")},
+        headers=user1["headers"],
+    )
+    assert upload.status_code == 201, upload.text
+    attachment_uuid = upload.json()["id"]
+
+    url = f"/api/v1/chats/{chat_id}/messages"
+    sent = await client.post(
+        url, json={"attachment_ids": [attachment_uuid]}, headers=user1["headers"]
+    )
+    assert sent.status_code == 201, sent.text
+
+    row = (
+        await db_session.execute(
+            sql_text("SELECT storage_key FROM attachments WHERE uuid = :uuid"),
+            {"uuid": attachment_uuid},
+        )
+    ).scalar_one()
+    path = storage.path_for(row)
+    assert path.exists()
+
+    await client.delete(f"{url}/{sent.json()['id']}", headers=user1["headers"])
+
+    # Ни строки в базе, ни файла на диске: иначе «удалённое» вложение можно было бы скачать по ссылке
+    left = (
+        await db_session.execute(
+            sql_text("SELECT count(*) FROM attachments WHERE uuid = :uuid"),
+            {"uuid": attachment_uuid},
+        )
+    ).scalar_one()
+    assert left == 0
+    assert not path.exists()
+

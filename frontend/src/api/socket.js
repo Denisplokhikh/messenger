@@ -52,6 +52,16 @@ export function connectSocket(newHandlers) {
 
     if (data.event === "typing") {
       handlers?.onTyping?.(data);
+      return;
+    }
+
+    if (data.event === "message_edited") {
+      handlers?.onEdit?.(data);
+      return;
+    }
+
+    if (data.event === "message_deleted") {
+      handlers?.onDelete?.(data);
     }
   };
 

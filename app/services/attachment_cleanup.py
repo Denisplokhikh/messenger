@@ -7,7 +7,7 @@ from sqlalchemy import delete, func, select
 
 from app.database import AsyncSessionLocal
 from app.models.attachment import Attachment
-from app.services.attachment_storage import delete_files
+from app.services.attachment_storage import delete_many
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +18,6 @@ CLEANUP_INTERVAL = 60 * 60
 CLEANUP_FIRST_DELAY = 60
 # Произвольное число для pg_try_advisory_xact_lock: если процессов несколько, чистит только один
 CLEANUP_LOCK_ID = 7_301_001
-
-
-def _delete_files(storage_keys: list[str]) -> None:
-    for key in storage_keys:
-        try:
-            delete_files(key)
-        except (OSError, ValueError):
-            # Один проблемный файл не должен мешать удалить остальные
-            logger.exception("Failed to delete attachment files %s", key)
 
 
 async def delete_unsent_attachments() -> int:
@@ -49,7 +40,7 @@ async def delete_unsent_attachments() -> int:
 
     # Файлы — только после commit: если база откатится, файлы ещё нужны
     if storage_keys:
-        await run_in_threadpool(_delete_files, storage_keys)
+        await run_in_threadpool(delete_many, storage_keys)
     return len(storage_keys)
 
 

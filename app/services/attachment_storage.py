@@ -1,8 +1,9 @@
 import base64
+import logging
 import os
 import re
 import secrets
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
@@ -26,6 +27,8 @@ ENCRYPTED_CHUNK_SIZE = CHUNK_SIZE + TAG_SIZE
 # Ключ хранилища генерирует сервер (new_storage_key), но проверяем всё равно:
 # это имя файла на диске, и «../» в нём недопустимо
 _STORAGE_KEY_RE = re.compile(r"^[0-9a-f]{64}$")
+
+logger = logging.getLogger(__name__)
 
 
 class CorruptedFileError(Exception):
@@ -166,3 +169,17 @@ def iter_decrypted(storage_key: str, thumb: bool = False) -> Iterator[bytes]:
 def delete_files(storage_key: str) -> None:
     path_for(storage_key).unlink(missing_ok=True)
     path_for(storage_key, thumb=True).unlink(missing_ok=True)
+
+
+def delete_many(storage_keys: Iterable[str]) -> None:
+    """Удаляет файлы пачкой, не падая на первом проблемном.
+
+    Синхронная и «best effort»: вызывается после коммита БД, когда строк уже нет,
+    и потеря одного файла не должна мешать удалить остальные.
+    """
+    for key in storage_keys:
+        try:
+            delete_files(key)
+        except (OSError, ValueError):
+            logger.exception("Failed to delete attachment files %s", key)
+

@@ -136,6 +136,8 @@ async def get_my_chats(
             selectinload(Message.sender),
             selectinload(Message.chat),
             selectinload(Message.attachments),
+            # Цитата тоже попадает в ответ, значит её и её автора нужно загрузить заранее
+            selectinload(Message.reply_to).selectinload(Message.sender),
         )
     )
     result = await db.execute(stmt)

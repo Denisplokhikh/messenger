@@ -130,11 +130,25 @@ export const api = {
     if (beforeId != null) params.set("before_id", beforeId);
     return request(`/chats/${chatId}/messages?${params}`, { error: "Не удалось загрузить сообщения" });
   },
-  sendMessage: (chatId, content, attachmentIds = []) =>
+  sendMessage: (chatId, content, attachmentIds = [], replyToId = null) =>
     request(`/chats/${chatId}/messages`, {
       method: "POST",
-      body: { content, attachment_ids: attachmentIds },
+      body: { content, attachment_ids: attachmentIds, reply_to_id: replyToId },
       error: "Не удалось отправить сообщение",
+    }),
+
+  // Правка меняет только текст: вложения у сообщения остаются прежними
+  editMessage: (chatId, messageId, content) =>
+    request(`/chats/${chatId}/messages/${messageId}`, {
+      method: "PATCH",
+      body: { content },
+      error: "Не удалось изменить сообщение",
+    }),
+
+  deleteMessage: (chatId, messageId) =>
+    request(`/chats/${chatId}/messages/${messageId}`, {
+      method: "DELETE",
+      error: "Не удалось удалить сообщение",
     }),
 
   uploadAttachment: (file, onProgress) => upload("/attachments", file, { onProgress }),

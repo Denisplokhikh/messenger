@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
-import { getSender } from "../lib/chat";
+import { getReplyAuthorName, getSender } from "../lib/chat";
 import { formatDay, isSameDay } from "../lib/format";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
@@ -99,6 +99,7 @@ export default function MessageList({ chat, myId }) {
       <MessageRow
         key={msg.client_id ?? msg.id}
         msg={msg}
+        quoteName={msg.reply_to ? getReplyAuthorName(msg.reply_to, chat, myId) : null}
         name={sender.name}
         username={sender.username}
         avatarUrl={sender.avatarUrl}

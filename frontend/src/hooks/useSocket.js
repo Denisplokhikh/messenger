@@ -10,6 +10,8 @@ export function useSocket() {
       onMessage: (msg) => useChatStore.getState().addMessage(msg),
       onTyping: (event) => useChatStore.getState().setTyping(event),
       onPresence: (event) => useChatStore.getState().setPresence(event),
+      onEdit: (event) => useChatStore.getState().applyEdit(event),
+      onDelete: (event) => useChatStore.getState().applyDelete(event),
     });
     return () => disconnectSocket();
   }, []);

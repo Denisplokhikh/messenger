@@ -38,6 +38,14 @@ export function getTypingLabel(typing, isGroup) {
   return `${names.length} ${plural(names.length, ["человек", "человека", "человек"])} печатают…`;
 }
 
+// Имя автора цитируемого сообщения: «Вы» для себя, иначе ищем среди участников чата
+export function getReplyAuthorName(replyTo, chat, myId) {
+  if (replyTo.sender_id === myId) return "Вы";
+  const participant = chat?.participants?.find((p) => p.user_id === replyTo.sender_id);
+  const user = participant?.user;
+  return user?.full_name || user?.username || replyTo.sender_username || "unknown";
+}
+
 // Сообщения из WebSocket приходят без объекта sender — ищем автора среди участников чата
 export function getSender(msg, chat) {
   const participant = chat?.participants?.find((p) => p.user_id === msg.sender_id);
@@ -53,6 +61,8 @@ export function getSender(msg, chat) {
 
 // Текст для превью в списке чатов: подпись, а если её нет — что приложено
 export function getMessagePreview(msg) {
+  // Удалённое сообщение остаётся в ленте плашкой, и в списке чатов тоже должно быть понятно
+  if (msg.deleted_at) return "Сообщение удалено";
   if (msg.content) return msg.content;
   const attachments = msg.attachments ?? [];
   const images = attachments.filter((a) => a.kind === "image").length;

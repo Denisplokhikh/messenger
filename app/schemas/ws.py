@@ -4,7 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 from app.schemas.attachment import AttachmentResponse
-from app.schemas.message import MessageInput
+from app.schemas.message import MessageInput, MessageReplyPreview
 
 
 class WSAuthPayload(BaseModel):
@@ -67,6 +67,9 @@ class WSMessagePayload(BaseModel):
     content: str | None
     created_at: datetime.datetime
     attachments: list[AttachmentResponse] = []
+    edited_at: datetime.datetime | None = None
+    deleted_at: datetime.datetime | None = None
+    reply_to: MessageReplyPreview | None = None
 
 class WSTypingEvent(BaseModel):
     # События «перестал печатать» нет: клиент сам гасит индикатор, если новых typing долго не было
@@ -85,3 +88,20 @@ class WSPresenceEvent(BaseModel):
     user_id: uuid.UUID
     is_online: bool
     last_seen_at: datetime.datetime
+
+
+class WSMessageEditedEvent(BaseModel):
+    """Автор отредактировал сообщение. Текст новый, вложения не меняются."""
+    event: str = "message_edited"
+    message_id: int
+    chat_id: uuid.UUID
+    content: str | None
+    edited_at: datetime.datetime
+
+
+class WSMessageDeletedEvent(BaseModel):
+    """Сообщение удалено: клиенты заменяют его плашкой «Сообщение удалено»."""
+    event: str = "message_deleted"
+    message_id: int
+    chat_id: uuid.UUID
+    deleted_at: datetime.datetime

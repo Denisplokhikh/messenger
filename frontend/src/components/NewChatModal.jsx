@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { hasPointer } from "../lib/device";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useAuthStore } from "../store/auth";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
@@ -10,6 +12,7 @@ import { Button, ErrorText, Field, IconButton, Input } from "./ui";
 
 export default function NewChatModal({ onClose }) {
   const [tab, setTab] = useState("direct");
+  useBodyScrollLock();
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -19,14 +22,14 @@ export default function NewChatModal({ onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-zinc-950/40 p-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-zinc-950/40 backdrop-blur-[2px] md:items-start md:p-4 md:pt-[12vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-chat-title"
-        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl md:max-h-[76dvh] md:rounded-lg md:pb-0 dark:border-zinc-800 dark:bg-zinc-950"
       >
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 id="new-chat-title" className="text-sm font-semibold">
@@ -37,7 +40,7 @@ export default function NewChatModal({ onClose }) {
           </IconButton>
         </div>
 
-        <div className="p-4">
+        <div className="min-h-0 overflow-y-auto p-4">
           <div className="mb-4 grid grid-cols-2 gap-1 rounded-md bg-zinc-100 p-1 dark:bg-zinc-900">
             {[
               ["direct", "Личный"],
@@ -80,7 +83,7 @@ function DirectChatForm({ onDone }) {
     }
   }
 
-  return <UserSearch onSelect={start} excludeIds={[myId]} actionLabel="Написать" autoFocus />;
+  return <UserSearch onSelect={start} excludeIds={[myId]} actionLabel="Написать" autoFocus={hasPointer()} />;
 }
 
 function GroupChatForm({ onDone }) {
@@ -119,7 +122,7 @@ function GroupChatForm({ onDone }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field label="Название">
-        <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Например: Разработка" autoFocus />
+        <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Например: Разработка" autoFocus={hasPointer()} />
       </Field>
 
       <div className="space-y-2">

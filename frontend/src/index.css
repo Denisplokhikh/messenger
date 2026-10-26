@@ -33,7 +33,27 @@
     height: 100%;
   }
 
+  html {
+    /* iOS не должен сам увеличивать текст в альбомной ориентации */
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-white font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+    /* Свайп вниз у края ленты не должен перезагружать страницу */
+    overscroll-behavior: none;
+    /* Серая вспышка при тапе на мобильном; пинч-зум остаётся доступным */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+/* iOS Safari принудительно зумит страницу, если шрифт поля меньше 16px.
+   Правило вне @layer, чтобы перебивать утилиту text-sm у полей */
+@media (max-width: 767px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 }

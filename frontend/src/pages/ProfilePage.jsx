@@ -6,6 +6,7 @@ import AvatarCropModal from "../components/AvatarCropModal";
 import ThemeToggle from "../components/ThemeToggle";
 import { ArrowLeftIcon, CameraIcon, CopyIcon, LogOutIcon, MessageIcon, TrashIcon, XIcon } from "../components/icons";
 import { Button, Field, FullScreenMessage, IconButton, Input, Spinner, inputClass } from "../components/ui";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useNow } from "../hooks/useNow";
 import { usePresence } from "../hooks/usePresence";
 import { cropToBlob } from "../lib/cropImage";
@@ -57,11 +58,11 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b border-zinc-200 bg-white/80 px-3 backdrop-blur md:px-6 dark:border-zinc-800 dark:bg-zinc-950/80">
+      <header className="sticky top-0 z-10 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-2 border-b border-zinc-200 bg-white/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur md:px-6 dark:border-zinc-800 dark:bg-zinc-950/80">
         <Link
           to="/"
           aria-label="Назад к чатам"
-          className="inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          className="inline-flex size-10 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 md:size-8 dark:hover:bg-zinc-900"
         >
           <ArrowLeftIcon />
         </Link>
@@ -71,7 +72,7 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+      <main className="mx-auto max-w-2xl space-y-6 px-4 py-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:py-8">
         {!user || (!isMe && status === "loading") ? (
           <div className="flex justify-center py-16">
             <Spinner />
@@ -259,7 +260,7 @@ function MyProfile({ user }) {
               label="Загрузить фото"
               onClick={() => fileInput.current?.click()}
               disabled={avatarBusy}
-              className={`${avatarButtonClass} right-0 bottom-0 rounded-full`}
+              className={`${avatarButtonClass} -right-1 -bottom-1 rounded-full`}
             >
               <CameraIcon size={14} />
             </IconButton>
@@ -268,7 +269,7 @@ function MyProfile({ user }) {
                 label="Удалить фото"
                 onClick={removeAvatar}
                 disabled={avatarBusy}
-                className={`${avatarButtonClass} top-0 right-0 rounded-full hover:text-red-600 dark:hover:text-red-400`}
+                className={`${avatarButtonClass} -top-1 -right-1 rounded-full hover:text-red-600 dark:hover:text-red-400`}
               >
                 <TrashIcon size={14} />
               </IconButton>
@@ -341,6 +342,7 @@ function DeleteAccountModal({ onClose }) {
   const logout = useAuthStore((s) => s.logout);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  useBodyScrollLock();
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -364,14 +366,14 @@ function DeleteAccountModal({ onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-zinc-950/40 p-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-zinc-950/40 backdrop-blur-[2px] md:items-start md:p-4 md:pt-[12vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="delete-account-title"
-        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl md:rounded-lg md:pb-0 dark:border-zinc-800 dark:bg-zinc-950"
       >
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 id="delete-account-title" className="text-sm font-semibold text-red-600 dark:text-red-400">
@@ -382,7 +384,7 @@ function DeleteAccountModal({ onClose }) {
           </IconButton>
         </div>
 
-        <form onSubmit={submit} className="space-y-4 p-4">
+        <form onSubmit={submit} className="min-h-0 space-y-4 overflow-y-auto p-4">
           <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-400">
             <li>Имя, email, описание и фото будут удалены.</li>
             <li>Ваши сообщения останутся в чатах от имени «Удалённый аккаунт».</li>

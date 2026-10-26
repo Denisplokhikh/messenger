@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { sendSocket } from "../api/socket";
 import { useAttachmentUploads } from "../hooks/useAttachmentUploads";
 import { getReplyAuthorName } from "../lib/chat";
+import { hasPointer } from "../lib/device";
 import { TYPING_THROTTLE, useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
 import AttachmentTray from "./AttachmentTray";
@@ -26,8 +27,10 @@ export default function Composer({ chatId, myId }) {
   const lastTypingSentRef = useRef(0);
   const uploads = useAttachmentUploads();
 
+  // На телефоне поле не фокусируем автоматически: клавиатура выехала бы сразу
+  // и закрыла половину переписки
   useEffect(() => {
-    textareaRef.current?.focus();
+    if (hasPointer()) textareaRef.current?.focus();
     lastTypingSentRef.current = 0;
   }, [chatId]);
 
@@ -146,7 +149,7 @@ export default function Composer({ chatId, myId }) {
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="shrink-0 border-t border-zinc-200 p-3 md:px-6 dark:border-zinc-800"
+      className="shrink-0 border-t border-zinc-200 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:px-6 dark:border-zinc-800"
     >
       <div
         className={`rounded-md border bg-white p-1.5 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent dark:bg-zinc-900 ${
@@ -174,7 +177,7 @@ export default function Composer({ chatId, myId }) {
                 onClick={() => fileInputRef.current?.click()}
                 title="Прикрепить файлы"
                 aria-label="Прикрепить файлы"
-                className="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+                className="inline-flex size-10 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 md:size-8 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
               >
                 <PaperclipIcon size={16} />
               </button>
@@ -198,6 +201,7 @@ export default function Composer({ chatId, myId }) {
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
+            enterKeyHint="send"
             placeholder={editing ? "Редактирование" : uploads.items.length ? "Подпись" : "Сообщение"}
             aria-label="Сообщение"
             className="max-h-40 min-h-7 flex-1 resize-none bg-transparent px-1 py-1 text-sm leading-5 placeholder:text-zinc-400 focus:outline-none dark:placeholder:text-zinc-600"
@@ -207,7 +211,7 @@ export default function Composer({ chatId, myId }) {
             disabled={!canSend}
             title={sendHint}
             aria-label={editing ? "Сохранить" : "Отправить"}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-accent text-white transition-colors hover:bg-accent-hover disabled:opacity-40"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-accent text-white transition-colors hover:bg-accent-hover disabled:opacity-40 md:size-8"
           >
             <SendIcon size={15} />
           </button>
@@ -244,7 +248,7 @@ function ComposerBanner({ myId, chat, replyTo, editing, onCancel }) {
         onClick={onCancel}
         title="Отменить"
         aria-label="Отменить"
-        className="inline-flex size-5 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900 md:size-5 dark:hover:bg-zinc-700 dark:hover:text-zinc-100"
       >
         <XIcon size={12} />
       </button>

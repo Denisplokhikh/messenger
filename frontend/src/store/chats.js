@@ -77,14 +77,27 @@ function patchMessage(set, chatId, messageId, patch) {
   });
 }
 
+// Текущий запрос списка чатов: нужен, чтобы два одновременных вызова дали один запрос
+let chatsRequest = null;
+
 export const useChatStore = create((set, get) => ({
   ...initialState,
-
   reset: () => set(initialState),
 
   async loadChats() {
-    const chats = await api.getChats();
-    set({ chats, chatsLoaded: true });
+    // Список чатов стартует из двух мест одновременно (App и MessengerPage).
+    // Второй вызов присоединяется к уже идущему запросу, а не шлёт свой —
+    // на медленном канале лишний круг задержки заметен
+    if (chatsRequest) return chatsRequest;
+    chatsRequest = api
+      .getChats()
+      .then((chats) => {
+        set({ chats, chatsLoaded: true });
+      })
+      .finally(() => {
+        chatsRequest = null;
+      });
+    return chatsRequest;
   },
 
   // Последние PAGE_SIZE сообщений чата. Кеш заменяется свежими данными с сервера.

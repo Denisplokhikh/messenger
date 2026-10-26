@@ -26,7 +26,7 @@ export default function Sidebar({ activeChatId, className = "" }) {
     <aside
       className={`w-full flex-col border-zinc-200 bg-zinc-50/60 md:w-80 md:border-r lg:w-96 dark:border-zinc-800 dark:bg-zinc-950 ${className}`}
     >
-      <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 dark:border-zinc-800">
+      <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center justify-between gap-2 border-b border-zinc-200 px-4 pt-[env(safe-area-inset-top)] dark:border-zinc-800">
         <span className="font-semibold tracking-tight">messenger</span>
         <div className="flex items-center gap-0.5">
           <ThemeToggle />
@@ -44,7 +44,7 @@ export default function Sidebar({ activeChatId, className = "" }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Поиск чатов"
-            className="w-full rounded-md border border-zinc-200 bg-white py-1.5 pr-3 pl-8 text-sm placeholder:text-zinc-400 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none dark:border-zinc-800 dark:bg-zinc-900 dark:placeholder:text-zinc-600"
+            className="w-full rounded-md border border-zinc-200 bg-white py-2 pr-3 pl-8 text-sm placeholder:text-zinc-400 focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none md:py-1.5 dark:border-zinc-800 dark:bg-zinc-900 dark:placeholder:text-zinc-600"
           />
         </div>
       </div>
@@ -65,7 +65,7 @@ export default function Sidebar({ activeChatId, className = "" }) {
         )}
       </nav>
 
-      <footer className="flex h-14 shrink-0 items-center justify-between gap-2 border-t border-zinc-200 px-3 dark:border-zinc-800">
+      <footer className="flex h-[calc(3.5rem+env(safe-area-inset-bottom))] shrink-0 items-center justify-between gap-2 border-t border-zinc-200 px-3 pb-[env(safe-area-inset-bottom)] dark:border-zinc-800">
         <Link
           to="/profile"
           className="flex min-w-0 items-center gap-2.5 rounded-md p-1 pr-2 hover:bg-zinc-100 dark:hover:bg-zinc-900"

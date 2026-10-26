@@ -2,16 +2,24 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover — интерфейс доходит до выреза и домашней полосы iPhone.
+         interactive-widget=resizes-content — на Android клавиатура сжимает страницу, а не накрывает её -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
+    />
+    <meta name="theme-color" content="#ffffff" />
+    <!-- Не превращаем телефоны и почту из сообщений в автоматические ссылки -->
+    <meta name="format-detection" content="telephone=no" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Messenger</title>
-    <!-- Тема применяется до отрисовки, чтобы не было вспышки светлого фона -->
     <script>
       try {
         const theme = localStorage.getItem("theme");
-        if (theme === "dark" || (!theme && matchMedia("(prefers-color-scheme: dark)").matches)) {
-          document.documentElement.classList.add("dark");
-        }
+        const dark = theme === "dark" || (!theme && matchMedia("(prefers-color-scheme: dark)").matches);
+        if (dark) document.documentElement.classList.add("dark");
+        // Цвет адресной строки мобильного браузера повторяет тему приложения
+        document.querySelector('meta[name="theme-color"]').setAttribute("content", dark ? "#09090b" : "#ffffff");
       } catch {}
     </script>
   </head>

@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Link } from "react-router-dom";
+import { isTouchOnly } from "../lib/device";
 import { formatTime } from "../lib/format";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
@@ -10,7 +11,7 @@ import { EditIcon, ReplyIcon, TrashIcon } from "./icons";
 // memo: при новом сообщении перерисовывается только новая строка, а не вся лента.
 // Поэтому props — только примитивы: объект chat менял бы идентичность на каждое сообщение
 // и ломал бы мемоизацию всей ленты
-function MessageRow({ msg, quoteName, name, username, avatarUrl, isMe, grouped }) {
+function MessageRow({ msg, quoteName, name, username, avatarUrl, isMe, grouped, onOpenActions }) {
   const time = formatTime(msg.created_at);
   const profileLink = isMe ? "/profile" : `/profile/${msg.sender_id}`;
   const deleted = Boolean(msg.deleted_at);
@@ -18,9 +19,18 @@ function MessageRow({ msg, quoteName, name, username, avatarUrl, isMe, grouped }
   // status есть лишь у оптимистичных черновиков: сервер про них ещё не знает
   const canModify = isMe && !deleted && !msg.status;
 
+  // На тач-экране :hover нет, поэтому действия открываются тапом по сообщению.
+  // Клики по ссылкам и кнопкам внутри строки обрабатываются ими самими
+  function handleClick(e) {
+    if (!onOpenActions || !isTouchOnly()) return;
+    if (e.target.closest("a, button")) return;
+    onOpenActions(msg, name, canModify);
+  }
+
   return (
     <div
       id={`msg-${msg.id}`}
+      onClick={handleClick}
       className={`group relative flex gap-3 px-4 transition-colors hover:bg-zinc-50 md:px-6 dark:hover:bg-zinc-900/50 ${grouped ? "py-0.5" : "mt-2 pt-1.5 pb-0.5"}`}
     >
       <div className="w-8 shrink-0">
@@ -137,7 +147,7 @@ function RowActions({ msg, canModify }) {
   }
 
   return (
-    <div className="absolute top-1 right-2 flex items-center gap-0.5 rounded-md border border-zinc-200 bg-white p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100 dark:border-zinc-700 dark:bg-zinc-900">
+    <div className="absolute top-1 right-2 hidden items-center gap-0.5 rounded-md border border-zinc-200 bg-white p-0.5 opacity-0 shadow-sm transition-opacity group-hover:opacity-100 focus-within:opacity-100 md:flex dark:border-zinc-700 dark:bg-zinc-900">
       <ActionButton title="Ответить" onClick={() => setReplyTo(msg.chat_id, msg)}>
         <ReplyIcon size={13} />
       </ActionButton>

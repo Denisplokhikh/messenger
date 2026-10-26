@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Cropper from "react-easy-crop";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { XIcon } from "./icons";
 import { Button, IconButton } from "./ui";
 
@@ -9,6 +10,7 @@ export default function AvatarCropModal({ src, onCancel, onSave }) {
   const [zoom, setZoom] = useState(1);
   const [area, setArea] = useState(null);
   const [saving, setSaving] = useState(false);
+  useBodyScrollLock();
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && !saving && onCancel();
@@ -27,14 +29,14 @@ export default function AvatarCropModal({ src, onCancel, onSave }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-zinc-950/40 p-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-zinc-950/40 backdrop-blur-[2px] md:items-start md:p-4 md:pt-[12vh]"
       onMouseDown={(e) => e.target === e.currentTarget && !saving && onCancel()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="avatar-crop-title"
-        className="w-full max-w-md rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl md:rounded-lg md:pb-0 dark:border-zinc-800 dark:bg-zinc-950"
       >
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 id="avatar-crop-title" className="text-sm font-semibold">
@@ -46,7 +48,7 @@ export default function AvatarCropModal({ src, onCancel, onSave }) {
         </div>
 
         {/* Cropper позиционируется абсолютно и занимает весь родитель — нужна явная высота */}
-        <div className="relative h-72 bg-zinc-900">
+        <div className="relative h-64 shrink-0 bg-zinc-900 md:h-72">
           <Cropper
             image={src}
             crop={crop}
@@ -61,7 +63,7 @@ export default function AvatarCropModal({ src, onCancel, onSave }) {
           />
         </div>
 
-        <div className="space-y-4 p-4">
+        <div className="min-h-0 space-y-4 overflow-y-auto p-4">
           <label className="block space-y-1.5">
             <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Масштаб</span>
             <input

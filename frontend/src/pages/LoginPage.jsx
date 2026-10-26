@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import ThemeToggle from "../components/ThemeToggle";
 import { Button, ErrorText, Field, Input } from "../components/ui";
+import { hasPointer } from "../lib/device";
 import { useAuthStore } from "../store/auth";
 
 export default function LoginPage() {
@@ -12,8 +13,8 @@ export default function LoginPage() {
   if (token) return <Navigate to={location.state?.from?.pathname ?? "/"} replace />;
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center p-4">
-      <div className="absolute top-3 right-3">
+    <div className="relative flex min-h-dvh items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] right-3">
         <ThemeToggle />
       </div>
 
@@ -87,7 +88,7 @@ function LoginForm() {
       }}
     >
       <Field label="Имя пользователя или email">
-        <Input value={username} onChange={(e) => setUsername(e.target.value)} required autoComplete="username" autoFocus />
+        <Input value={username} onChange={(e) => setUsername(e.target.value)} required autoComplete="username" autoFocus={hasPointer()} />
       </Field>
       <Field label="Пароль">
         <Input
@@ -129,7 +130,7 @@ function RegisterForm() {
           minLength={3}
           maxLength={20}
           autoComplete="username"
-          autoFocus
+          autoFocus={hasPointer()}
         />
       </Field>
       <Field label="Email">

@@ -43,6 +43,9 @@ services:
       - ./app:/app/app
       - ./alembic:/app/alembic
       - ./alembic.ini:/app/alembic.ini
+      # Собранный фронтенд (cd frontend && npm run build) — чтобы правки UI
+      # появлялись без пересборки образа
+      - ./frontend/dist:/app/frontend/dist:ro
       # Аватарки и прочие загрузки переживают пересборку контейнера
       - media_data:/app/media
       # Вложения из чатов: отдельно от media, потому что media раздаётся публично

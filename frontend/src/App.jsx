@@ -7,6 +7,7 @@ import MessengerPage from "./pages/MessengerPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ProfilePage from "./pages/ProfilePage";
 import { useAuthStore } from "./store/auth";
+import { useChatStore } from "./store/chats";
 
 // Пускает дальше только с токеном и загруженным профилем текущего пользователя
 function RequireAuth() {
@@ -18,7 +19,11 @@ function RequireAuth() {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (token && !user && !failed) loadMe().catch(() => setFailed(true));
+    if (!token || user || failed) return;
+    // Список чатов не зависит от профиля, поэтому грузим его параллельно с /users/me.
+    // Иначе первый экран ждал бы два круга по сети подряд
+    useChatStore.getState().loadChats().catch(() => {});
+    loadMe().catch(() => setFailed(true));
   }, [token, user, failed, loadMe]);
 
   if (!token) return <Navigate to="/login" replace state={{ from: location }} />;

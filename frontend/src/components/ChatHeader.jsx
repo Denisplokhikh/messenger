@@ -44,11 +44,11 @@ export default function ChatHeader({ chat, myId }) {
   );
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-zinc-200 px-3 md:px-6 dark:border-zinc-800">
+    <header className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-zinc-200 px-3 pt-[env(safe-area-inset-top)] md:px-6 dark:border-zinc-800">
       <Link
         to="/"
         aria-label="Назад к чатам"
-        className="inline-flex size-8 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 md:hidden dark:hover:bg-zinc-900"
+        className="inline-flex size-10 items-center justify-center rounded-md text-zinc-500 hover:bg-zinc-100 md:hidden md:size-8 dark:hover:bg-zinc-900"
       >
         <ArrowLeftIcon />
       </Link>

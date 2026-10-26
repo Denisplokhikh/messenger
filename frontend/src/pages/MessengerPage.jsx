@@ -4,6 +4,7 @@ import ChatView from "../components/ChatView";
 import Sidebar from "../components/Sidebar";
 import { MessageIcon } from "../components/icons";
 import { useSocket } from "../hooks/useSocket";
+import { useVisualViewport } from "../hooks/useVisualViewport";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
 
@@ -14,14 +15,22 @@ export default function MessengerPage() {
   const loadChats = useChatStore((s) => s.loadChats);
 
   useSocket();
+  // Высота оболочки следует за visualViewport, чтобы клавиатура не накрывала композер
+  useVisualViewport();
 
   useEffect(() => {
+    // На холодном старте загрузку уже запустил App, параллельно с /users/me.
+    // Здесь догружаем только если списка ещё нет
+    if (useChatStore.getState().chatsLoaded) return;
     loadChats().catch((e) => toast.error(e.message));
   }, [loadChats]);
 
   // На мобильном видна одна колонка: список или открытый чат. На md+ — обе.
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div
+      className="fixed inset-x-0 flex overflow-hidden"
+      style={{ top: "var(--app-offset, 0px)", height: "var(--app-height, 100dvh)" }}
+    >
       <Sidebar activeChatId={activeChatId} className={activeChatId ? "hidden md:flex" : "flex"} />
       <main className={`min-w-0 flex-1 flex-col ${activeChatId ? "flex" : "hidden md:flex"}`}>
         {activeChatId ? (

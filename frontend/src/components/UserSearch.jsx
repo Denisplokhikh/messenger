@@ -85,7 +85,7 @@ export default function UserSearch({ onSelect, excludeIds = [], actionLabel, aut
                     <span className="block truncate text-sm font-medium">{u.full_name || u.username}</span>
                     <span className="block truncate font-mono text-xs text-zinc-500">@{u.username}</span>
                   </span>
-                  <span className="text-xs font-medium text-accent-text opacity-0 group-hover:opacity-100">
+                  <span className="text-xs font-medium text-accent-text sm:opacity-0 sm:group-hover:opacity-100">
                     {actionLabel}
                   </span>
                 </button>

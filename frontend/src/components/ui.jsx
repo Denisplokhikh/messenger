@@ -13,7 +13,7 @@ export function Button({ variant = "primary", className = "", type = "button", .
   return (
     <button
       type={type}
-      className={`inline-flex h-9 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50 ${buttonVariants[variant]} ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50 md:h-9 ${buttonVariants[variant]} ${className}`}
       {...props}
     />
   );
@@ -25,7 +25,7 @@ export function IconButton({ className = "", label, ...props }) {
       type="button"
       title={label}
       aria-label={label}
-      className={`inline-flex size-8 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-accent dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 ${className}`}
+      className={`inline-flex size-10 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-2 focus-visible:outline-accent md:size-8 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-100 ${className}`}
       {...props}
     />
   );

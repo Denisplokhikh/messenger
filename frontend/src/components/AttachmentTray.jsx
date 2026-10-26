@@ -47,7 +47,7 @@ export default function AttachmentTray({ items, onRemove, onRetry }) {
             onClick={() => onRemove(it.key)}
             aria-label={`Убрать ${it.file.name}`}
             title="Убрать"
-            className="absolute top-0.5 right-0.5 inline-flex size-5 items-center justify-center rounded-full bg-zinc-900/60 text-white hover:bg-zinc-900/80"
+            className="absolute top-0.5 right-0.5 inline-flex size-7 items-center justify-center rounded-full bg-zinc-900/60 text-white hover:bg-zinc-900/80 md:size-5"
           >
             <XIcon size={12} />
           </button>

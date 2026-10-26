@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager, suppress
 import asyncio
 import logging
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -70,6 +71,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Сжатие ответов. Без него собранный JS уходит на клиент как есть (≈290 КБ),
+# с gzip — ≈91 КБ. На мобильном интернете и через проброс портов это заметная разница
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+# Ассеты Vite содержат хеш в имени, поэтому их содержимое никогда не меняется:
+# разрешаем браузеру держать их в кэше год и не перепроверять при каждом заходе
+@app.middleware("http")
+async def cache_static_assets(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/assets/"):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    return response
 
 app.include_router(api_v1_router)
 

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { getChatInfo } from "../lib/chat";
 import { formatLastSeen } from "../lib/format";
+import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
 import { useNow } from "../hooks/useNow";
 import { useChatStore } from "../store/chats";
 import Avatar from "./Avatar";
@@ -12,6 +13,7 @@ export default function GroupInfoModal({ chat, myId, onClose }) {
   const info = getChatInfo(chat, myId);
   const presenceByUser = useChatStore((s) => s.presenceByUser);
   const now = useNow();
+  useBodyScrollLock();
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -28,14 +30,14 @@ export default function GroupInfoModal({ chat, myId, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-zinc-950/40 p-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-40 flex items-end justify-center bg-zinc-950/40 backdrop-blur-[2px] md:items-start md:p-4 md:pt-[12vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="group-info-title"
-        className="flex max-h-[76vh] w-full max-w-md flex-col rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-xl border border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-xl md:rounded-lg md:pb-0 dark:border-zinc-800 dark:bg-zinc-950"
       >
         <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <h2 className="text-sm font-semibold">Информация о группе</h2>

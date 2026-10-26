@@ -1,8 +1,9 @@
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { getReplyAuthorName, getSender } from "../lib/chat";
 import { formatDay, isSameDay } from "../lib/format";
 import { useChatStore } from "../store/chats";
 import { toast } from "../store/toast";
+import MessageActionsSheet from "./MessageActionsSheet";
 import MessageRow from "./MessageRow";
 import { MessageIcon } from "./icons";
 import { Spinner } from "./ui";
@@ -20,6 +21,24 @@ export default function MessageList({ chat, myId }) {
   const loadingOlderRef = useRef(false);
   const stickToBottomRef = useRef(true);
   const prevRef = useRef({ firstId: null, lastId: null, scrollHeight: 0 });
+
+  // Какое сообщение открыто в нижней панели действий (тач-экраны)
+  const [actions, setActions] = useState(null);
+  const openActions = useCallback((msg, name, canModify) => setActions({ msg, name, canModify }), []);
+  const closeActions = useCallback(() => setActions(null), []);
+
+  // Клавиатура и поворот экрана меняют высоту ленты. Если пользователь был внизу,
+  // держим последнее сообщение на виду, иначе оно уедет под композер
+  const hasMessages = Boolean(messages);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !hasMessages) return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottomRef.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMessages]);
 
   // Управление прокруткой после каждого изменения списка
   useLayoutEffect(() => {
@@ -105,19 +124,25 @@ export default function MessageList({ chat, myId }) {
         avatarUrl={sender.avatarUrl}
         isMe={msg.sender_id === myId}
         grouped={grouped}
+        onOpenActions={openActions}
       />,
     );
   });
 
   return (
-    <div ref={containerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto py-4">
-      {hasMore && (
-        <div className="flex justify-center py-2">
-          <Spinner />
-        </div>
+    <>
+      <div ref={containerRef} onScroll={handleScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-4">
+        {hasMore && (
+          <div className="flex justify-center py-2">
+            <Spinner />
+          </div>
+        )}
+        {rows}
+      </div>
+      {actions && (
+        <MessageActionsSheet msg={actions.msg} name={actions.name} canModify={actions.canModify} onClose={closeActions} />
       )}
-      {rows}
-    </div>
+    </>
   );
 }
 
